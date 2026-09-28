@@ -1,0 +1,15 @@
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      NODE_ENV: production
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - property_images:/app/uploads
+    restart: unless-stopped
+volumes:
+  property_images:
