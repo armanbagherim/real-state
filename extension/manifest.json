@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "Ashian Importer",
+  "version": "0.1.0",
+  "description": "افزودن فایل‌های ملکی از AmlakPlus و دیوار به آشیان",
+  "action": {
+    "default_title": "افزودن به آشیان",
+    "default_popup": "popup/index.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "activeTab", "tabs"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*",
+    "https://next-ifqzxw.chbkn.dev/*",
+    "https://amlakplus.ir/*",
+    "https://*.amlakplus.ir/*",
+    "https://amlakplus.com/*",
+    "https://*.amlakplus.com/*",
+    "https://amlakplus.app/*",
+    "https://*.amlakplus.app/*",
+    "https://divar.ir/*",
+    "https://*.divar.ir/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://amlakplus.ir/*",
+        "https://*.amlakplus.ir/*",
+        "https://amlakplus.com/*",
+        "https://*.amlakplus.com/*",
+        "https://amlakplus.app/*",
+        "https://*.amlakplus.app/*",
+        "https://divar.ir/*",
+        "https://*.divar.ir/*"
+      ],
+      "css": ["content/content.css"],
+      "js": ["sites/amlakplus/adapter.js", "sites/divar/adapter.js", "content/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

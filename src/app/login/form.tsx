@@ -56,6 +56,9 @@ export function LoginForm() {
       <p className="auth-switch">
         حساب ندارید؟ <Link href="/register">ثبت‌نام املاک</Link>
       </p>
+      <p className="auth-switch">
+        افزونه وارد کردن فایل؟ <Link href="/extension">راهنمای نصب افزونه</Link>
+      </p>
     </form>
   );
 }

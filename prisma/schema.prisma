@@ -176,6 +176,9 @@ model Property {
   conversionRate Decimal? @db.Decimal(8,5)
   description String?
   internalNotes String?
+  source String?
+  sourceUrl String?
+  contactPhone String?
   ownerId String
   owner Owner @relation(fields:[ownerId], references:[id])
   createdAt DateTime @default(now())
@@ -195,6 +198,7 @@ model Property {
   @@index([ownerId])
   @@index([neighborhood])
   @@index([createdAt])
+  @@unique([source, sourceUrl])
 }
 model PropertyShare {
   id String @id @default(cuid())

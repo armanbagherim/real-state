@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { db } from "@/lib/db";
 import { propertySchema } from "@/lib/validation";
 import { propertyCanEditWhere, type CurrentUser } from "@/lib/access";
-export async function saveProperty(raw: unknown, user: CurrentUser, id?: string) {
+export async function saveProperty(
+  raw: unknown,
+  user: CurrentUser,
+  id?: string,
+  metadata?: { source?: string; sourceUrl?: string; contactPhone?: string | null },
+) {
   const data = propertySchema.parse(raw);
   return db.$transaction(async (tx) => {
     if (id)
@@ -28,6 +33,7 @@ export async function saveProperty(raw: unknown, user: CurrentUser, id?: string)
       );
     const values = {
       ...data,
+      ...metadata,
       conversionRate: data.isConvertible ? settings.conversionRate : null,
     };
     let property = old

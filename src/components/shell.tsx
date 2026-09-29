@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   Command,
   Download,
+  Chrome,
   X,
 } from "lucide-react";
 import * as Dialog from "@radix-ui/react-dialog";
@@ -37,8 +38,11 @@ const nav = [
   { href: "/contracts", label: "قراردادها", icon: FileText },
   { href: "/follow-ups", label: "پیگیری‌ها", icon: CalendarCheck },
   { href: "/reminders", label: "یادآوری‌ها", icon: Bell },
-  { href: "/users", label: "کاربران", icon: UserCog, adminOnly: true },
+  { href: "/offices", label: "مدیریت املاک", icon: Building2, superAdminOnly: true },
+  { href: "/users", label: "ادمین‌ها", icon: UserCog, superAdminOnly: true },
+  { href: "/agents", label: "مشاورین", icon: UserCog, officeAdminOnly: true },
   { href: "/settings", label: "تنظیمات", icon: Settings },
+  { href: "/extension", label: "راهنمای افزونه", icon: Chrome },
 ];
 type InstallEvent = Event & {
   prompt: () => Promise<void>;
@@ -96,7 +100,11 @@ export function Shell({
       <nav aria-label="منوی اصلی">
         {nav
           .filter((item) =>
-            item.adminOnly ? ["SUPER_ADMIN", "OFFICE_ADMIN"].includes(role) : true,
+            item.superAdminOnly
+              ? role === "SUPER_ADMIN"
+              : item.officeAdminOnly
+              ? role === "OFFICE_ADMIN"
+              : true,
           )
           .map(({ href, label, icon: Icon }, i) => (
           <Link

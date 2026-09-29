@@ -2,6 +2,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { hash } from "bcryptjs";
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
@@ -17,6 +18,7 @@ import {
 } from "@/lib/access";
 import { saveProperty } from "@/services/properties";
 import { createContract } from "@/services/contracts";
+import { normalizeDigits } from "@/lib/utils";
 
 export type ActionResult = {
   error?: string;
@@ -31,6 +33,13 @@ const formValues = (form: FormData) =>
       .filter(([, value]) => typeof value === "string")
       .map(([key, value]) => [key, String(value)]),
   );
+const agentPassword = z
+  .string()
+  .min(10, "رمز عبور حداقل ۱۰ کاراکتر باشد.")
+  .max(72, "رمز عبور بیش از حد طولانی است.")
+  .regex(/[A-Za-z]/, "رمز عبور باید حداقل یک حرف انگلیسی داشته باشد.")
+  .regex(/[0-9]/, "رمز عبور باید حداقل یک عدد داشته باشد.")
+  .regex(/[^A-Za-z0-9]/, "رمز عبور باید حداقل یک نشانه مثل @ یا # داشته باشد.");
 
 export async function saveRecord(
   kind: string,
@@ -141,6 +150,30 @@ export async function saveRecord(
         });
         break;
       }
+      case "office": {
+        if (user.role !== "SUPER_ADMIN")
+          throw new Error("فقط مدیر کل می‌تواند املاک را مدیریت کند.");
+        const data = z
+          .object({
+            officeId: z.string().min(1),
+            officeName: z.string().trim().min(2).max(120),
+            officePhone: z.string().trim().max(50),
+            officeAddress: z.string().trim().max(300),
+            adminsCanViewAgentFiles: z.preprocess((v) => v === "on", z.boolean()),
+          })
+          .parse(raw);
+        await db.office.update({
+          where: { id: data.officeId },
+          data: {
+            name: data.officeName,
+            phone: data.officePhone,
+            address: data.officeAddress,
+            adminsCanViewAgentFiles: data.adminsCanViewAgentFiles,
+          },
+        });
+        path = "/offices";
+        break;
+      }
       case "share": {
         const data = z
           .object({
@@ -159,6 +192,15 @@ export async function saveRecord(
           },
         });
         if (!property) throw new Error("اجازه اشتراک‌گذاری این فایل را ندارید.");
+        const shareUser = await db.user.findFirst({
+          where: {
+            id: data.userId,
+            status: "APPROVED",
+            role: "AGENT",
+            ...(user.role === "SUPER_ADMIN" ? {} : { officeId: user.officeId }),
+          },
+        });
+        if (!shareUser) throw new Error("مشاور انتخاب‌شده متعلق به این دفتر نیست.");
         await db.propertyShare.upsert({
           where: {
             propertyId_userId: {
@@ -174,6 +216,44 @@ export async function saveRecord(
           },
         });
         path = `/properties/${data.propertyId}`;
+        break;
+      }
+      case "agent": {
+        if (user.role !== "OFFICE_ADMIN" || !user.officeId)
+          throw new Error("فقط مدیر املاک می‌تواند مشاور اضافه کند.");
+        const data = z
+          .object({
+            name: z.string().trim().min(2, "نام را کامل وارد کنید.").max(100),
+            mobile: z
+              .string()
+              .transform((value) => normalizeDigits(value).replace(/\D/g, ""))
+              .refine((value) => /^09\d{9}$/.test(value), "شماره موبایل معتبر وارد کنید."),
+            password: agentPassword,
+          })
+          .parse(raw);
+        const passwordHash = await hash(data.password, 12);
+        await db.$transaction(async (tx) => {
+          const agent = await tx.user.create({
+            data: {
+              name: data.name,
+              username: data.mobile,
+              mobile: data.mobile,
+              passwordHash,
+              role: "AGENT",
+              status: "APPROVED",
+              officeId: user.officeId,
+            },
+          });
+          await tx.userApproval.create({
+            data: {
+              userId: agent.id,
+              approvedByUserId: user.id,
+              status: "APPROVED",
+              note: "افزوده‌شده توسط مدیر املاک",
+            },
+          });
+        });
+        path = "/agents";
         break;
       }
       case "user": {
@@ -194,6 +274,8 @@ export async function saveRecord(
               : { id: data.userId, officeId: user.officeId },
         });
         if (!target) throw new Error("کاربر پیدا نشد.");
+        if (user.role === "OFFICE_ADMIN" && data.role !== "AGENT")
+          throw new Error("مدیر املاک فقط می‌تواند مشاوران دفتر خودش را مدیریت کند.");
         await db.$transaction([
           db.user.update({
             where: { id: target.id },
@@ -217,6 +299,43 @@ export async function saveRecord(
             ? []
             : [db.session.deleteMany({ where: { userId: target.id } })]),
         ]);
+        path = "/users";
+        break;
+      }
+      case "admin": {
+        if (user.role !== "SUPER_ADMIN")
+          throw new Error("فقط مدیر کل می‌تواند ادمین جدید بسازد.");
+        const data = z
+          .object({
+            name: z.string().trim().min(2, "نام را کامل وارد کنید.").max(100),
+            mobile: z
+              .string()
+              .transform((value) => normalizeDigits(value).replace(/\D/g, ""))
+              .refine((value) => /^09\d{9}$/.test(value), "شماره موبایل معتبر وارد کنید."),
+            password: agentPassword,
+          })
+          .parse(raw);
+        const passwordHash = await hash(data.password, 12);
+        await db.$transaction(async (tx) => {
+          const admin = await tx.user.create({
+            data: {
+              name: data.name,
+              username: data.mobile,
+              mobile: data.mobile,
+              passwordHash,
+              role: "SUPER_ADMIN",
+              status: "APPROVED",
+            },
+          });
+          await tx.userApproval.create({
+            data: {
+              userId: admin.id,
+              approvedByUserId: user.id,
+              status: "APPROVED",
+              note: "افزوده‌شده توسط مدیر کل",
+            },
+          });
+        });
         path = "/users";
         break;
       }
@@ -295,12 +414,42 @@ export async function updateRecord(
           });
         });
       }
+    } else if (kind === "office" && ["approve", "reject"].includes(action)) {
+      if (user.role !== "SUPER_ADMIN")
+        throw new Error("فقط مدیر کل می‌تواند وضعیت املاک را تغییر دهد.");
+      const status = action === "approve" ? "APPROVED" : "REJECTED";
+      const owner = await db.user.findFirst({
+        where: { officeId: id, role: "OFFICE_ADMIN" },
+      });
+      if (!owner) throw new Error("مدیر این املاک پیدا نشد.");
+      await db.$transaction([
+        db.user.update({ where: { id: owner.id }, data: { status } }),
+        db.userApproval.create({
+          data: {
+            userId: owner.id,
+            approvedByUserId: user.id,
+            status,
+            note: status === "APPROVED" ? "تأیید املاک توسط مدیر کل" : "رد املاک توسط مدیر کل",
+          },
+        }),
+        ...(status === "APPROVED"
+          ? []
+          : [db.session.deleteMany({ where: { userId: owner.id } })]),
+      ]);
     } else if (kind === "follow-up") {
       const status = z.enum(["COMPLETED", "CANCELLED", "PENDING"]).parse(action);
       await db.followUp.update({
         where: { id },
         data: { status, completedAt: status === "COMPLETED" ? new Date() : null },
       });
+    } else if (kind === "agent" && action === "delete") {
+      if (user.role !== "OFFICE_ADMIN" || !user.officeId)
+        throw new Error("اجازه حذف مشاور را ندارید.");
+      const target = await db.user.findFirst({
+        where: { id, officeId: user.officeId, role: "AGENT" },
+      });
+      if (!target) throw new Error("مشاور پیدا نشد.");
+      await db.user.delete({ where: { id: target.id } });
     } else if (kind === "contract") {
       const status = z.enum(["CANCELLED", "EXPIRED"]).parse(action);
       await db.$transaction(async (tx) => {

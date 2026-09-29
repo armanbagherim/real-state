@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>آشیان</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="popup">
+      <header class="brand"><span class="brand-mark">آ</span><div><strong>آشیان</strong><small>افزودن فایل از AmlakPlus</small></div></header>
+      <section id="session" class="session"></section>
+      <form id="login-form" class="login-form">
+        <label>موبایل یا نام کاربری<input id="username" autocomplete="username" required></label>
+        <label>رمز عبور<input id="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit">ورود به آشیان</button>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+      <section id="site-state" class="site-state"></section>
+      <button id="logout" class="secondary" type="button" hidden>خروج از حساب</button>
+      <p class="hint">بعد از ورود، در کارت‌های AmlakPlus دکمه «افزودن به آشیان» نمایش داده می‌شود.</p>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

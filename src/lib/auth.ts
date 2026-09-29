@@ -1,7 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createHmac, randomBytes } from "node:crypto";
-import { createHmac, randomBytes } from "node:crypto";
 import { db } from "./db";
 const COOKIE = "ashian-session";
 function digest(token: string) {
@@ -10,14 +9,27 @@ function digest(token: string) {
     throw new Error("Session secret is not configured");
   return createHmac("sha256", secret).update(token).digest("hex");
 }
-export const getUser = async () => {
-  const token = (await cookies()).get(COOKIE)?.value;
+export const getUser = async (request?: Request) => {
+  const authorization = request?.headers.get("authorization");
+  const bearer = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  const token = bearer ?? (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
   const session = await db.session.findUnique({
     where: { id: digest(token) },
     include: { user: { include: { office: true } } },
   });
   return session && session.expiresAt > new Date() ? session.user : null;
+}
+export async function createSessionToken(userId: string) {
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 7 * 86400000);
+  await db.session.create({ data: { id: digest(token), userId, expiresAt } });
+  return { token, expiresAt };
+}
+export async function revokeBearerSession(request: Request) {
+  const authorization = request.headers.get("authorization");
+  const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (token) await db.session.deleteMany({ where: { id: digest(token) } });
 }
 export async function requireUser() {
   const user = await getUser();
@@ -26,9 +38,7 @@ export async function requireUser() {
   return user;
 }
 export async function createSession(userId: string) {
-  const token = randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 7 * 86400000);
-  await db.session.create({ data: { id: digest(token), userId, expiresAt } });
+  const { token, expiresAt } = await createSessionToken(userId);
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     secure: process.env.NEXTAUTH_URL?.startsWith("https://") ?? false,

@@ -201,6 +201,7 @@ export async function getPropertyDetailData(params: Promise<{ id: string }>) {
   const shareUsers = await db.user.findMany({
     where: {
       status: "APPROVED",
+      role: "AGENT",
       id: { not: user.id },
       ...(user.role === "SUPER_ADMIN" ? {} : { officeId: user.officeId }),
     },
@@ -444,16 +445,42 @@ export async function getSettingsData() {
 
 export async function getUsersData() {
   const user = await requireUser();
-  if (!["SUPER_ADMIN", "OFFICE_ADMIN"].includes(user.role)) notFound();
+  if (user.role !== "SUPER_ADMIN") notFound();
   const users = await db.user.findMany({
-    where: user.role === "SUPER_ADMIN" ? {} : { officeId: user.officeId },
+    where: { role: "SUPER_ADMIN" },
     include: { office: true },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 200,
   });
+  return { user, users };
+}
+
+export async function getOfficesData() {
+  const user = await requireUser();
+  if (user.role !== "SUPER_ADMIN") notFound();
   const offices = await db.office.findMany({
-    orderBy: { name: "asc" },
+    include: {
+      users: {
+        where: { role: "OFFICE_ADMIN" },
+        select: { id: true, name: true, mobile: true, status: true, createdAt: true },
+        orderBy: { createdAt: "asc" },
+        take: 1,
+      },
+      _count: { select: { users: true, properties: true } },
+    },
+    orderBy: { createdAt: "desc" },
     take: 200,
   });
-  return { user, users, offices };
+  return { offices };
+}
+
+export async function getAgentsData() {
+  const user = await requireUser();
+  if (user.role !== "OFFICE_ADMIN" || !user.officeId) notFound();
+  const agents = await db.user.findMany({
+    where: { officeId: user.officeId, role: "AGENT" },
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+  return { user, agents };
 }

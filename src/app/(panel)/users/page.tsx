@@ -1,95 +1,56 @@
-import { UserCog } from "lucide-react";
+import { Users } from "lucide-react";
 import { getUsersData } from "@/repositories/office";
 import { PageHeading } from "@/components/page-parts";
-import type { Field } from "@/components/forms";
-import { UserManagementDialog } from "@/components/user-management-dialog";
+import { RecordForm, type Field } from "@/components/forms";
 import { dateFa } from "@/lib/utils";
 
+const fields: Field[] = [
+  { name: "name", label: "نام و نام خانوادگی", required: true },
+  { name: "mobile", label: "شماره موبایل", type: "tel", required: true },
+  {
+    name: "password",
+    label: "رمز عبور",
+    type: "password",
+    required: true,
+    hint: "حداقل ۱۰ کاراکتر، شامل حرف انگلیسی، عدد و نشانه",
+  },
+];
+
 export default async function UsersPage() {
-  const { user, users, offices } = await getUsersData();
-  const fields = (officeId?: string | null): Field[] => [
-    {
-      name: "status",
-      label: "وضعیت",
-      type: "select",
-      options: [
-        { value: "PENDING", label: "در انتظار تأیید" },
-        { value: "APPROVED", label: "تأیید شده" },
-        { value: "REJECTED", label: "رد شده" },
-      ],
-    },
-    {
-      name: "role",
-      label: "نقش",
-      type: "select",
-      options: [
-        { value: "OFFICE_ADMIN", label: "مدیر دفتر" },
-        { value: "AGENT", label: "مشاور" },
-      ],
-    },
-    ...(user.role === "SUPER_ADMIN"
-      ? [
-          {
-            name: "officeId",
-            label: "دفتر",
-            type: "select",
-            options: [
-              { value: officeId ?? "", label: "بدون دفتر" },
-              ...offices.map((o) => ({ value: o.id, label: o.name })),
-            ],
-          } satisfies Field,
-        ]
-      : []),
-  ];
+  const { users } = await getUsersData();
   return (
     <>
       <PageHeading
-        title="مدیریت کاربران"
-        description="ثبت‌نام‌های جدید را تأیید کنید و نقش کاربران هر دفتر را تنظیم کنید."
+        title="ادمین‌ها"
+        description="کاربران مدیریتی سیستم را مدیریت کنید. این بخش از املاک و مشاوران جداست."
       >
         <span className="badge">
-          <UserCog size={16} />
-          {users.filter((u) => u.status === "PENDING").length} در انتظار
+          <Users size={16} />
+          {users.length} ادمین
         </span>
       </PageHeading>
+      <section className="panel detail-panel">
+        <h2>افزودن ادمین</h2>
+        <RecordForm kind="admin" fields={fields} />
+      </section>
       <section className="panel">
         <div className="responsive-table">
           <table>
             <thead>
               <tr>
-                <th>کاربر</th>
+                <th>ادمین</th>
                 <th>موبایل</th>
-                <th>دفتر</th>
-                <th>ثبت‌نام</th>
-                <th>مدیریت</th>
+                <th>وضعیت</th>
+                <th>تاریخ ساخت</th>
               </tr>
             </thead>
             <tbody>
               {users.map((item) => (
                 <tr key={item.id}>
-                  <td>
-                    <strong>{item.name}</strong>
-                    <small>{item.status}</small>
-                  </td>
+                  <td><strong>{item.name}</strong></td>
                   <td dir="ltr">{item.mobile}</td>
-                  <td>{item.office?.name ?? "بدون دفتر"}</td>
+                  <td><span className="badge">فعال</span></td>
                   <td>{dateFa(item.createdAt)}</td>
-                  <td>
-                    {item.role === "SUPER_ADMIN" ? (
-                      <span className="badge">مدیر کل</span>
-                    ) : (
-                      <UserManagementDialog
-                        userId={item.id}
-                        name={item.name}
-                        fields={fields(item.officeId)}
-                        values={{
-                          status: item.status,
-                          role: item.role,
-                          officeId: item.officeId ?? "",
-                        }}
-                      />
-                    )}
-                  </td>
                 </tr>
               ))}
             </tbody>

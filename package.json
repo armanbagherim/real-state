@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build --webpack",
+    "dev": "node scripts/sync-extension-config.mjs && next dev --webpack",
+    "build": "node scripts/sync-extension-config.mjs && next build --webpack",
+    "sync:extension": "node scripts/sync-extension-config.mjs",
     "start": "node scripts/start.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
