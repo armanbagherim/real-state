@@ -4,25 +4,41 @@ import {
   MapPin,
   Phone,
   Pencil,
-  Building2,
   Car,
   Package,
   ArrowUpDown,
   Sun,
   Plus,
 } from "lucide-react";
-import { dateFa, fa, money, statuses } from "@/lib/utils";
+import { dateFa, fa, money, propertyShareText, statuses } from "@/lib/utils";
+import { canDeletePropertyImages } from "@/lib/access";
+import { PropertyShare } from "@/components/property-share";
 import { Badge, PageHeading } from "@/components/page-parts";
 import { Button } from "@/components/ui/button";
 import { RecordAction } from "@/components/record-actions";
 import { ImageUploader } from "@/components/image-uploader";
+import { PropertyGallery } from "@/components/property-gallery";
 import { RecordForm, type Field } from "@/components/forms";
 export default async function Page({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id, p, shareUsers } = await getPropertyDetailData(params);
+  const { id, p, shareUsers, user } = await getPropertyDetailData(params);
+  const shareText = propertyShareText({
+    title: p.title,
+    fileCode: p.fileCode,
+    transactionType: p.transactionType,
+    propertyType: p.propertyType,
+    area: p.area,
+    bedrooms: p.bedrooms,
+    city: p.city,
+    district: p.district,
+    neighborhood: p.neighborhood,
+    salePrice: p.salePrice,
+    mortgagePrice: p.mortgagePrice,
+    rentPrice: p.rentPrice,
+  });
   const shareFields: Field[] = [
     {
       name: "userId",
@@ -59,6 +75,11 @@ export default async function Page({
             ویرایش فایل
           </Link>
         </Button>
+        <PropertyShare
+          text={shareText}
+          imageUrl={p.images[0]?.url}
+          fileName={`${p.fileCode}.webp`}
+        />
       </PageHeading>
       <div className="detail-grid">
         <div>
@@ -73,25 +94,11 @@ export default async function Page({
               </div>
               <ImageUploader propertyId={id} />
             </div>
-            <div className="property-gallery">
-              {p.images.length ? (
-                p.images.map((img) => (
-                  <a
-                    href={img.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    key={img.id}
-                  >
-                    <img src={img.url} alt={p.title} width={500} height={300} />
-                  </a>
-                ))
-              ) : (
-                <div className="gallery-empty">
-                  <Building2 size={64} />
-                  <span>تصاویر این ملک را اضافه کنید</span>
-                </div>
-              )}
-            </div>
+            <PropertyGallery
+              images={p.images.map(({ id, url }) => ({ id, url }))}
+              title={p.title}
+              canDelete={canDeletePropertyImages(user, p)}
+            />
             <p className="row-gap muted">
               <MapPin size={17} />
               {p.city}، {p.district}، {p.neighborhood}، {p.address}

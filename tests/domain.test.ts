@@ -6,8 +6,18 @@ import {
   propertySchema,
   settingsSchema,
 } from "../src/lib/validation";
-import { tehranDayRange, normalizeDigits } from "../src/lib/utils";
+import {
+  tehranDayRange,
+  normalizeDigits,
+  wrapIndex,
+  propertyShareText,
+} from "../src/lib/utils";
 import { propertyWhere } from "../src/repositories/properties";
+import {
+  canDeletePropertyImages,
+  propertyCanDeleteImageWhere,
+  type CurrentUser,
+} from "../src/lib/access";
 test("contract reminders preserve exact offsets across month and year boundaries", () => {
   const end = new Date("2027-01-05T08:30:00Z");
   const dates = reminderDates(end, [60, 30, 14, 7]);
@@ -116,4 +126,64 @@ test("filters exclude deleted properties and bind search text", () => {
   assert.equal(where.parking, true);
   assert.equal(where.OR?.length, 5);
   assert.equal(normalizeDigits("A-۱۰۰۱"), "A-1001");
+});
+test("gallery index wraps around in both directions", () => {
+  assert.equal(wrapIndex(2, 1, 3), 0);
+  assert.equal(wrapIndex(0, -1, 3), 2);
+  assert.equal(wrapIndex(1, 1, 3), 2);
+});
+test("image deletion is limited to the file creator and super admin", () => {
+  const agent: CurrentUser = {
+    id: "u1",
+    role: "AGENT",
+    status: "APPROVED",
+    officeId: "o1",
+  };
+  const superAdmin: CurrentUser = { ...agent, role: "SUPER_ADMIN" };
+  const own = { ownerUserId: "u1" };
+  const other = { ownerUserId: "u2" };
+  const orphan = { ownerUserId: null };
+  assert.equal(canDeletePropertyImages(agent, own), true);
+  assert.equal(canDeletePropertyImages(agent, other), false);
+  assert.equal(canDeletePropertyImages(agent, orphan), false);
+  assert.equal(canDeletePropertyImages(superAdmin, other), true);
+  assert.equal(canDeletePropertyImages(superAdmin, orphan), true);
+  assert.deepEqual(propertyCanDeleteImageWhere(superAdmin), {});
+  assert.deepEqual(propertyCanDeleteImageWhere(agent), { ownerUserId: "u1" });
+});
+test("share text summarises a property with the right price basis", () => {
+  const base = {
+    title: "آپارتمان لوکس",
+    fileCode: "A-1001",
+    propertyType: "آپارتمان",
+    area: "120.5",
+    bedrooms: 3,
+    city: "تهران",
+    district: "منطقه ۱",
+    neighborhood: "فرمانیه",
+  };
+  const sale = propertyShareText({
+    ...base,
+    transactionType: "SALE",
+    salePrice: 9000000000,
+    mortgagePrice: 0,
+    rentPrice: 0,
+    imageUrl: "/api/images/a.webp",
+  });
+  assert.ok(sale.includes("فرمانیه"));
+  assert.ok(sale.includes("کد فایل: A-1001"));
+  assert.ok(sale.includes("۱۲۰٫۵ متر"));
+  assert.ok(sale.includes("تومان"));
+  assert.ok(sale.includes("/api/images/a.webp"));
+  assert.ok(!sale.includes("رهن"), "sale price must not mention rent");
+  const rent = propertyShareText({
+    ...base,
+    transactionType: "RENT",
+    salePrice: 0,
+    mortgagePrice: 500000000,
+    rentPrice: 25000000,
+  });
+  assert.ok(rent.includes("رهن"));
+  assert.ok(rent.includes("اجاره"));
+  assert.ok(!rent.includes("a.webp"), "no blank image line when absent");
 });

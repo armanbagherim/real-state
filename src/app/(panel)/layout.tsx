@@ -1,6 +1,11 @@
+import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth";
 import { Shell } from "@/components/shell";
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "فضای کار",
+  robots: { index: false, follow: false },
+};
 export default async function PanelLayout({
   children,
 }: {

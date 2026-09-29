@@ -1,25 +1,30 @@
 generator client {
   provider = "prisma-client-js"
 }
+
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
+
 enum Role {
   SUPER_ADMIN
   OFFICE_ADMIN
   AGENT
 }
+
 enum UserStatus {
   PENDING
   APPROVED
   REJECTED
 }
+
 enum SharePermission {
   VIEW
   EDIT
   MANAGE
 }
+
 enum PropertyStatus {
   ACTIVE
   RENTED
@@ -27,21 +32,25 @@ enum PropertyStatus {
   INACTIVE
   ARCHIVED
 }
+
 enum TransactionType {
   RENT
   SALE
 }
+
 enum ContractStatus {
   ACTIVE
   EXPIRED
   RENEWED
   CANCELLED
 }
+
 enum FollowUpStatus {
   PENDING
   COMPLETED
   CANCELLED
 }
+
 enum FollowUpType {
   CALL
   FOLLOW_UP
@@ -49,148 +58,251 @@ enum FollowUpType {
   OWNER
   OTHER
 }
+
 enum ReminderStatus {
   PENDING
   COMPLETED
   DISMISSED
 }
+
 enum ReminderType {
   CONTRACT_EXPIRY
   FOLLOW_UP
   CALL
   CUSTOM
 }
+
+enum SubscriptionStatus {
+  AWAITING_RECEIPT
+  ACTIVE
+  REJECTED
+  EXPIRED
+}
+
+model Package {
+  id            String         @id @default(cuid())
+  name          String
+  description   String         @default("")
+  price         Int
+  durationDays  Int
+  propertyLimit Int
+  agentLimit    Int
+  active        Boolean        @default(true)
+  sortOrder     Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  subscriptions Subscription[]
+
+  @@index([active, sortOrder])
+}
+
+model Subscription {
+  id                String             @id @default(cuid())
+  officeId          String
+  office            Office             @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  packageId         String
+  package           Package            @relation(fields: [packageId], references: [id])
+  status            SubscriptionStatus @default(AWAITING_RECEIPT)
+  amount            Int
+  receiptPath       String             @default("")
+  buyerNote         String             @default("")
+  startsAt          DateTime?
+  endsAt            DateTime?
+  approvedByUserId  String?
+  approvedBy        User?              @relation("SubscriptionApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  approvedAt        DateTime?
+  referredByUserId  String?
+  referredBy        User?              @relation("SubscriptionReferredBy", fields: [referredByUserId], references: [id], onDelete: SetNull)
+  referralCode      String             @default("")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  commissionEntries CommissionEntry[]
+
+  @@index([officeId, status])
+  @@index([status])
+  @@index([referredByUserId])
+}
+
+model CommissionEntry {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  percent        Int
+  amount         Int
+
+  @@unique([subscriptionId, userId])
+  @@index([userId])
+}
+
+model ReferralCode {
+  id         String    @id @default(cuid())
+  code       String    @unique
+  userId     String?   @unique
+  user       User?     @relation("UserReferralCode", fields: [userId], references: [id], onDelete: Cascade)
+  propertyId String?   @unique
+  property   Property? @relation("PropertyReferralCode", fields: [propertyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([propertyId])
+}
+
 model Office {
-  id String @id @default(cuid())
-  name String
-  phone String @default("")
-  address String @default("")
-  adminsCanViewAgentFiles Boolean @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users User[]
-  owners Owner[]
-  properties Property[]
-  settings Settings?
+  id                      String         @id @default(cuid())
+  name                    String
+  phone                   String         @default("")
+  address                 String         @default("")
+  adminsCanViewAgentFiles Boolean        @default(true)
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+  users                   User[]
+  owners                  Owner[]
+  properties              Property[]
+  settings                Settings?
+  subscriptions           Subscription[]
+
   @@index([name])
 }
+
 model User {
-  id String @id @default(cuid())
-  name String
-  username String @unique
-  mobile String @unique
-  passwordHash String
-  role Role @default(AGENT)
-  status UserStatus @default(PENDING)
-  officeId String?
-  office Office? @relation(fields:[officeId], references:[id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  sessions Session[]
-  followUps FollowUp[]
-  history PropertyStatusHistory[]
-  ownedProperties Property[] @relation("PropertyOwnerUser")
-  propertyShares PropertyShare[]
-  createdOwners Owner[] @relation("OwnerCreatedBy")
-  approvedUsers UserApproval[] @relation("ApprovedBy")
-  approvals UserApproval[] @relation("ApprovedUser")
+  id                    String                  @id @default(cuid())
+  name                  String
+  username              String                  @unique
+  mobile                String                  @unique
+  passwordHash          String
+  role                  Role                    @default(AGENT)
+  status                UserStatus              @default(PENDING)
+  officeId              String?
+  office                Office?                 @relation(fields: [officeId], references: [id])
+  referredByUserId      String?
+  referredBy            User?                   @relation("UserReferredBy", fields: [referredByUserId], references: [id], onDelete: SetNull)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  sessions              Session[]
+  followUps             FollowUp[]
+  history               PropertyStatusHistory[]
+  ownedProperties       Property[]              @relation("PropertyOwnerUser")
+  propertyShares        PropertyShare[]
+  createdOwners         Owner[]                 @relation("OwnerCreatedBy")
+  approvedUsers         UserApproval[]          @relation("ApprovedBy")
+  approvals             UserApproval[]          @relation("ApprovedUser")
+  referralCode          ReferralCode?           @relation("UserReferralCode")
+  referredUsers         User[]                  @relation("UserReferredBy")
+  commissionEntries     CommissionEntry[]
+  approvedSubscriptions Subscription[]          @relation("SubscriptionApprovedBy")
+  referredSubscriptions Subscription[]          @relation("SubscriptionReferredBy")
+
   @@index([officeId])
   @@index([status])
+  @@index([referredByUserId])
 }
+
 model UserApproval {
-  id String @id @default(cuid())
-  userId String
-  user User @relation("ApprovedUser", fields:[userId], references:[id], onDelete:Cascade)
+  id               String     @id @default(cuid())
+  userId           String
+  user             User       @relation("ApprovedUser", fields: [userId], references: [id], onDelete: Cascade)
   approvedByUserId String?
-  approvedBy User? @relation("ApprovedBy", fields:[approvedByUserId], references:[id], onDelete:SetNull)
-  status UserStatus
-  note String?
-  createdAt DateTime @default(now())
+  approvedBy       User?      @relation("ApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  status           UserStatus
+  note             String?
+  createdAt        DateTime   @default(now())
+
   @@index([userId, createdAt])
 }
+
 model Session {
-  id String @id
-  userId String
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   createdAt DateTime @default(now())
+
   @@index([expiresAt])
 }
+
 model LoginAttempt {
-  key String @id
-  count Int @default(0)
+  key     String   @id
+  count   Int      @default(0)
   resetAt DateTime
 }
+
 model Owner {
-  id String @id @default(cuid())
-  officeId String?
-  office Office? @relation(fields:[officeId], references:[id])
+  id              String          @id @default(cuid())
+  officeId        String?
+  office          Office?         @relation(fields: [officeId], references: [id])
   createdByUserId String?
-  createdByUser User? @relation("OwnerCreatedBy", fields:[createdByUserId], references:[id], onDelete:SetNull)
-  fullName String
-  mobile String
-  secondMobile String?
-  phone String?
-  description String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  properties Property[]
-  contracts LeaseContract[]
-  followUps FollowUp[]
-  reminders Reminder[]
+  createdByUser   User?           @relation("OwnerCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  fullName        String
+  mobile          String
+  secondMobile    String?
+  phone           String?
+  description     String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  properties      Property[]
+  contracts       LeaseContract[]
+  followUps       FollowUp[]
+  reminders       Reminder[]
+
   @@index([officeId])
   @@index([createdByUserId])
   @@index([mobile])
   @@index([fullName])
 }
+
 model Property {
-  id String @id @default(cuid())
-  officeId String?
-  office Office? @relation(fields:[officeId], references:[id])
-  ownerUserId String?
-  ownerUser User? @relation("PropertyOwnerUser", fields:[ownerUserId], references:[id], onDelete:SetNull)
-  sequence Int @unique @default(autoincrement())
-  fileCode String @unique
-  title String
+  id              String                  @id @default(cuid())
+  officeId        String?
+  office          Office?                 @relation(fields: [officeId], references: [id])
+  ownerUserId     String?
+  ownerUser       User?                   @relation("PropertyOwnerUser", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  sequence        Int                     @unique @default(autoincrement())
+  fileCode        String                  @unique
+  title           String
   transactionType TransactionType
-  propertyType String
-  status PropertyStatus @default(ACTIVE)
-  city String
-  district String
-  neighborhood String
-  address String
-  area Decimal @db.Decimal(10,2)
-  bedrooms Int @default(0)
-  floor Int @default(0)
-  totalFloors Int @default(1)
-  unitsPerFloor Int @default(1)
-  buildingAge Int @default(0)
-  parking Boolean @default(false)
-  storage Boolean @default(false)
-  elevator Boolean @default(false)
-  balcony Boolean @default(false)
-  salePrice Decimal @default(0) @db.Decimal(18,0)
-  mortgagePrice Decimal @default(0) @db.Decimal(18,0)
-  rentPrice Decimal @default(0) @db.Decimal(18,0)
-  isConvertible Boolean @default(false)
-  conversionRate Decimal? @db.Decimal(8,5)
-  description String?
-  internalNotes String?
-  source String?
-  sourceUrl String?
-  contactPhone String?
-  ownerId String
-  owner Owner @relation(fields:[ownerId], references:[id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  lastFollowUpAt DateTime?
-  deletedAt DateTime?
-  images PropertyImage[]
-  contracts LeaseContract[]
-  history PropertyStatusHistory[]
-  followUps FollowUp[]
-  reminders Reminder[]
-  shares PropertyShare[]
+  propertyType    String
+  status          PropertyStatus          @default(ACTIVE)
+  city            String
+  district        String
+  neighborhood    String
+  address         String
+  area            Decimal                 @db.Decimal(10, 2)
+  bedrooms        Int                     @default(0)
+  floor           Int                     @default(0)
+  totalFloors     Int                     @default(1)
+  unitsPerFloor   Int                     @default(1)
+  buildingAge     Int                     @default(0)
+  parking         Boolean                 @default(false)
+  storage         Boolean                 @default(false)
+  elevator        Boolean                 @default(false)
+  balcony         Boolean                 @default(false)
+  salePrice       Decimal                 @default(0) @db.Decimal(18, 0)
+  mortgagePrice   Decimal                 @default(0) @db.Decimal(18, 0)
+  rentPrice       Decimal                 @default(0) @db.Decimal(18, 0)
+  isConvertible   Boolean                 @default(false)
+  conversionRate  Decimal?                @db.Decimal(8, 5)
+  description     String?
+  internalNotes   String?
+  source          String?
+  sourceUrl       String?
+  contactPhone    String?
+  ownerId         String
+  owner           Owner                   @relation(fields: [ownerId], references: [id])
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  lastFollowUpAt  DateTime?
+  deletedAt       DateTime?
+  images          PropertyImage[]
+  contracts       LeaseContract[]
+  history         PropertyStatusHistory[]
+  followUps       FollowUp[]
+  reminders       Reminder[]
+  shares          PropertyShare[]
+  referralCode    ReferralCode?           @relation("PropertyReferralCode")
+
+  @@unique([source, sourceUrl])
   @@index([officeId])
   @@index([ownerUserId])
   @@index([status, deletedAt, createdAt])
@@ -198,113 +310,125 @@ model Property {
   @@index([ownerId])
   @@index([neighborhood])
   @@index([createdAt])
-  @@unique([source, sourceUrl])
 }
+
 model PropertyShare {
-  id String @id @default(cuid())
-  propertyId String
-  property Property @relation(fields:[propertyId], references:[id], onDelete:Cascade)
-  userId String
-  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
-  permission SharePermission @default(VIEW)
-  canUploadImages Boolean @default(false)
-  canDelete Boolean @default(false)
-  createdAt DateTime @default(now())
+  id              String          @id @default(cuid())
+  propertyId      String
+  property        Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission      SharePermission @default(VIEW)
+  canUploadImages Boolean         @default(false)
+  canDelete       Boolean         @default(false)
+  createdAt       DateTime        @default(now())
+
   @@unique([propertyId, userId])
   @@index([userId])
 }
+
 model PropertyImage {
-  id String @id @default(cuid())
+  id         String   @id @default(cuid())
   propertyId String
-  property Property @relation(fields:[propertyId],references:[id],onDelete:Cascade)
-  url String
-  sortOrder Int @default(0)
-  createdAt DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  url        String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+
   @@index([propertyId])
 }
+
 model LeaseContract {
-  id String @id @default(cuid())
-  propertyId String
-  property Property @relation(fields:[propertyId],references:[id])
-  ownerId String
-  owner Owner @relation(fields:[ownerId],references:[id])
-  tenantName String
-  tenantMobile String
-  startDate DateTime
-  endDate DateTime
-  mortgageAmount Decimal @db.Decimal(18,0)
-  rentAmount Decimal @db.Decimal(18,0)
-  description String?
-  status ContractStatus @default(ACTIVE)
-  previousContractId String? @unique
-  previousContract LeaseContract? @relation("Renewal",fields:[previousContractId],references:[id])
-  nextContract LeaseContract? @relation("Renewal")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  reminders Reminder[]
+  id                 String         @id @default(cuid())
+  propertyId         String
+  property           Property       @relation(fields: [propertyId], references: [id])
+  ownerId            String
+  owner              Owner          @relation(fields: [ownerId], references: [id])
+  tenantName         String
+  tenantMobile       String
+  startDate          DateTime
+  endDate            DateTime
+  mortgageAmount     Decimal        @db.Decimal(18, 0)
+  rentAmount         Decimal        @db.Decimal(18, 0)
+  description        String?
+  status             ContractStatus @default(ACTIVE)
+  previousContractId String?        @unique
+  previousContract   LeaseContract? @relation("Renewal", fields: [previousContractId], references: [id])
+  nextContract       LeaseContract? @relation("Renewal")
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  reminders          Reminder[]
+
   @@index([propertyId])
   @@index([ownerId])
-  @@index([status,endDate])
+  @@index([status, endDate])
 }
+
 model FollowUp {
-  id String @id @default(cuid())
-  propertyId String?
-  property Property? @relation(fields:[propertyId],references:[id])
-  ownerId String?
-  owner Owner? @relation(fields:[ownerId],references:[id])
-  userId String
-  user User @relation(fields:[userId],references:[id])
-  type FollowUpType @default(FOLLOW_UP)
-  status FollowUpStatus @default(PENDING)
-  note String
+  id           String         @id @default(cuid())
+  propertyId   String?
+  property     Property?      @relation(fields: [propertyId], references: [id])
+  ownerId      String?
+  owner        Owner?         @relation(fields: [ownerId], references: [id])
+  userId       String
+  user         User           @relation(fields: [userId], references: [id])
+  type         FollowUpType   @default(FOLLOW_UP)
+  status       FollowUpStatus @default(PENDING)
+  note         String
   followUpDate DateTime
-  completedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@index([status,followUpDate])
+  completedAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@index([status, followUpDate])
   @@index([propertyId])
   @@index([ownerId])
 }
+
 model Reminder {
-  id String @id @default(cuid())
-  propertyId String?
-  property Property? @relation(fields:[propertyId],references:[id])
+  id              String         @id @default(cuid())
+  propertyId      String?
+  property        Property?      @relation(fields: [propertyId], references: [id])
   leaseContractId String?
-  leaseContract LeaseContract? @relation(fields:[leaseContractId],references:[id])
-  ownerId String?
-  owner Owner? @relation(fields:[ownerId],references:[id])
-  title String
-  description String?
-  remindAt DateTime
-  status ReminderStatus @default(PENDING)
-  type ReminderType @default(CUSTOM)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  @@index([status,remindAt])
+  leaseContract   LeaseContract? @relation(fields: [leaseContractId], references: [id])
+  ownerId         String?
+  owner           Owner?         @relation(fields: [ownerId], references: [id])
+  title           String
+  description     String?
+  remindAt        DateTime
+  status          ReminderStatus @default(PENDING)
+  type            ReminderType   @default(CUSTOM)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([status, remindAt])
   @@index([propertyId])
   @@index([ownerId])
   @@index([leaseContractId])
 }
+
 model PropertyStatusHistory {
-  id String @id @default(cuid())
-  propertyId String
-  property Property @relation(fields:[propertyId],references:[id])
-  oldStatus PropertyStatus?
-  newStatus PropertyStatus
-  note String?
+  id              String          @id @default(cuid())
+  propertyId      String
+  property        Property        @relation(fields: [propertyId], references: [id])
+  oldStatus       PropertyStatus?
+  newStatus       PropertyStatus
+  note            String?
   changedByUserId String
-  changedByUser User @relation(fields:[changedByUserId],references:[id])
-  createdAt DateTime @default(now())
-  @@index([propertyId,createdAt])
+  changedByUser   User            @relation(fields: [changedByUserId], references: [id])
+  createdAt       DateTime        @default(now())
+
+  @@index([propertyId, createdAt])
 }
+
 model Settings {
-  id String @id @default("office")
-  officeId String? @unique
-  office Office? @relation(fields:[officeId], references:[id], onDelete:Cascade)
-  officeName String @default("املاک آشیان")
-  officePhone String @default("")
-  officeAddress String @default("")
-  conversionRate Decimal @default(0.03) @db.Decimal(8,5)
-  reminderDays Int[] @default([60,30,14,7])
-  updatedAt DateTime @updatedAt
+  id             String   @id @default("office")
+  officeId       String?  @unique
+  office         Office?  @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  officeName     String   @default("املاک آشیان")
+  officePhone    String   @default("")
+  officeAddress  String   @default("")
+  conversionRate Decimal  @default(0.03) @db.Decimal(8, 5)
+  reminderDays   Int[]    @default([60, 30, 14, 7])
+  updatedAt      DateTime @updatedAt
 }

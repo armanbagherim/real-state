@@ -82,3 +82,14 @@ export function propertyCanUploadImageWhere(
     ],
   };
 }
+export function canDeletePropertyImages(
+  user: CurrentUser,
+  property: { ownerUserId: string | null },
+) {
+  return isSuperAdmin(user) || property.ownerUserId === user.id;
+}
+export function propertyCanDeleteImageWhere(
+  user: CurrentUser,
+): Prisma.PropertyWhereInput {
+  return isSuperAdmin(user) ? {} : { ownerUserId: user.id };
+}

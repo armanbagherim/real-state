@@ -1540,11 +1540,258 @@ hr {
   gap: 10px;
   margin: 20px 0;
 }
-.property-gallery > a img {
+.gallery-item {
+  position: relative;
+}
+.share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+}
+.lp {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 22px 60px;
+}
+.lp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0;
+}
+.lp-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--primary);
+}
+.lp-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 13px;
+}
+.lp-hero {
+  text-align: center;
+  padding: 62px 0 56px;
+  border-bottom: 1px solid var(--line);
+}
+.lp-hero h1 {
+  margin: 14px 0 16px;
+  font-size: clamp(30px, 4.6vw, 48px);
+  line-height: 1.35;
+  color: var(--foreground);
+}
+.lp-hero p {
+  max-width: 640px;
+  margin: 0 auto;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 2;
+}
+.lp-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 26px;
+}
+.lp-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px;
+  justify-content: center;
+  list-style: none;
+  padding: 0;
+  margin: 34px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.lp-badges li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lp-section {
+  padding: 56px 0;
+}
+.lp-alt {
+  background: linear-gradient(130deg, #edf2ec, #f7f9f5);
+  border-radius: 18px;
+  padding: 46px 30px;
+  margin: 0 -10px;
+}
+.lp-section h2,
+.lp-cta-band h2 {
+  text-align: center;
+  font-size: 25px;
+  margin-bottom: 30px;
+  color: var(--foreground);
+}
+.lp-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.lp-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  padding: 18px 16px;
+}
+.lp-card-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #e8f2ee;
+  color: var(--primary);
+  margin-bottom: 12px;
+}
+.lp-card h3 {
+  font-size: 14px;
+  margin-bottom: 7px;
+}
+.lp-card p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.95;
+}
+.lp-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: center;
+}
+.lp-step-n {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+.lp-steps h3 {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.lp-steps p {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.9;
+}
+.lp-cta-band {
+  text-align: center;
+  padding: 60px 24px;
+  margin: 40px 0 0;
+  background: var(--primary);
+  border-radius: 18px;
+  color: #fff;
+}
+.lp-cta-band h2 {
+  color: #fff;
+  margin-bottom: 10px;
+}
+.lp-cta-band p {
+  max-width: 560px;
+  margin: 0 auto;
+  font-size: 14px;
+  line-height: 2;
+  opacity: 0.92;
+}
+.lp-cta-band .btn-outline {
+  border-color: #ffffff80;
+  color: #fff;
+  background: transparent;
+}
+.lp-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  margin-top: 48px;
+  padding-top: 22px;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 900px) {
+  .lp-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .lp-grid,
+  .lp-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .lp-hero {
+    padding: 40px 0 36px;
+  }
+  .lp-alt {
+    padding: 34px 20px;
+  }
+  .lp-cta-band {
+    padding: 44px 18px;
+  }
+}
+.property-gallery > button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: zoom-in;
+}
+.property-gallery img {
   width: 100%;
   height: 180px;
   object-fit: cover;
   border-radius: 8px;
+  transition: opacity 0.15s;
+}
+.property-gallery > button:hover img {
+  opacity: 0.85;
+}
+.gallery-remove {
+  position: absolute;
+  z-index: 1;
+  top: 6px;
+  left: 6px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #122c25cc;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
+}
+.gallery-item:hover .gallery-remove,
+.gallery-remove:focus-visible {
+  opacity: 1;
+}
+.gallery-remove:hover {
+  background: #c0392b;
 }
 .gallery-empty {
   grid-column: 1/-1;
@@ -1823,6 +2070,77 @@ hr {
 }
 .section-title {
   margin-bottom: 20px;
+}
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: #0b1a17f2;
+  backdrop-filter: blur(3px);
+  z-index: 60;
+}
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+.lightbox-close {
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  left: 12px;
+  color: #fff;
+  background: #ffffff1f;
+  border-radius: 50%;
+}
+.lightbox-stage {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  padding: 60px 16px 12px;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+  user-select: none;
+  -webkit-user-drag: none;
+  animation: lightbox-in 0.18s ease-out;
+}
+@keyframes lightbox-in {
+  from {
+    opacity: 0;
+  }
+}
+.lightbox-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px 20px;
+}
+.lightbox-nav {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  color: #fff;
+  background: #ffffff1f;
+  border: 1px solid #ffffff33;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.lightbox-nav:hover {
+  background: #ffffff33;
+}
+.lightbox-count {
+  color: #ffffffd9;
+  font-size: 13px;
 }
 .mobile-sidebar {
   position: fixed;
@@ -2435,8 +2753,11 @@ hr {
   .modal-content {
     padding: 27px 23px;
   }
-  .property-gallery > a img {
+  .property-gallery img {
     height: 135px;
+  }
+  .gallery-remove {
+    opacity: 1;
   }
   .table-scroll {
     max-width: 100%;

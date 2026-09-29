@@ -17,6 +17,7 @@ import {
   propertyCanEditWhere,
 } from "@/lib/access";
 import { saveProperty } from "@/services/properties";
+import { canCreateProperty } from "@/repositories/billing";
 import { createContract } from "@/services/contracts";
 import { normalizeDigits } from "@/lib/utils";
 
@@ -54,6 +55,14 @@ export async function saveRecord(
   try {
     switch (kind) {
       case "property": {
+        if (!id) {
+          const quota = await canCreateProperty(user);
+          if (quota.blocked)
+            return {
+              error: quota.reason,
+              values: formValues(form) as Record<string, string>,
+            };
+        }
         const row = await saveProperty(raw, user, id);
         path = `/properties/${row.id}`;
         break;

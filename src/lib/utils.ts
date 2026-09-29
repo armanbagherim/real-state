@@ -8,6 +8,40 @@ export const dateFa = (d: Date | string) =>
     dateStyle: "medium",
     timeZone: "Asia/Tehran",
   }).format(new Date(d));
+export const wrapIndex = (i: number, delta: number, len: number) =>
+  (i + delta + len) % len;
+export function propertyShareText(p: {
+  title: string;
+  fileCode: string;
+  transactionType: string;
+  propertyType: string;
+  area: unknown;
+  bedrooms: number;
+  city: string;
+  district: string;
+  neighborhood: string;
+  salePrice: unknown;
+  mortgagePrice: unknown;
+  rentPrice: unknown;
+  imageUrl?: string;
+}) {
+  const price =
+    p.transactionType === "SALE"
+      ? money(String(p.salePrice))
+      : `${money(String(p.mortgagePrice))} رهن + ${money(
+          String(p.rentPrice),
+        )} اجاره`;
+  return [
+    p.title,
+    `${p.propertyType} · ${fa(Number(p.area))} متر · ${fa(p.bedrooms)} خواب`,
+    `${p.city}، ${p.district}، ${p.neighborhood}`,
+    price,
+    `کد فایل: ${p.fileCode}`,
+    p.imageUrl ?? "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
 export const money = (n: number | string) => `${fa(n)} تومان`;
 export const shortMoney = (value: number | string) => {
   const n = Number(value);
