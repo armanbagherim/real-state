@@ -4,7 +4,9 @@ import { Building2, House, ShieldCheck, UserPlus } from "lucide-react";
 import { RegisterForm } from "./form";
 
 export default async function RegisterPage() {
-  if (await getUser()) redirect("/dashboard");
+  const user = await getUser();
+  if (user?.status === "APPROVED") redirect("/dashboard");
+  if (user) redirect("/buy");
   return (
     <main id="main" className="login-page">
       <section className="login-brand">
@@ -20,8 +22,8 @@ export default async function RegisterPage() {
             مشاورها بعداً اضافه می‌شوند.
           </h1>
           <p>
-            ثبت‌نام با شماره موبایل انجام می‌شود و پس از تأیید مدیر کل،
-            دسترسی پنل برای دفتر فعال خواهد شد.
+            ثبت‌نام با شماره موبایل انجام می‌شود و پس از تأیید مدیر کل، دسترسی
+            پنل برای دفتر فعال خواهد شد.
           </p>
           <div className="login-features">
             <span>

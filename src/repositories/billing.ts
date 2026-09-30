@@ -8,7 +8,13 @@ export async function officeQuota(
   officeId: string | null,
   client: PrismaClient | Prisma.TransactionClient = db,
 ): Promise<Quota> {
-  if (!officeId) return quotaFor({ officeId, used: 0, hasSubscriptionHistory: false, active: null });
+  if (!officeId)
+    return quotaFor({
+      officeId,
+      used: 0,
+      hasSubscriptionHistory: false,
+      active: null,
+    });
   const [used, history, active] = await Promise.all([
     client.property.count({ where: { officeId, deletedAt: null } }),
     client.subscription.count({ where: { officeId } }),
@@ -28,9 +34,24 @@ export async function officeQuota(
   });
 }
 
-export async function canCreateProperty(user: CurrentUser) {
-  if (isSuperAdmin(user)) return { ok: true, reason: "" } as const;
-  return await officeQuota(user.officeId);
+export async function activeSubscription(officeId: string | null) {
+  if (!officeId) return null;
+  return db.subscription.findFirst({
+    where: { officeId, status: "ACTIVE", endsAt: { gt: new Date() } },
+    include: { package: true },
+    orderBy: { endsAt: "desc" },
+  });
+}
+
+export async function canCreateProperty(user: CurrentUser): Promise<Quota> {
+  if (isSuperAdmin(user))
+    return quotaFor({
+      officeId: null,
+      used: 0,
+      hasSubscriptionHistory: false,
+      active: null,
+    });
+  return officeQuota(user.officeId);
 }
 
 export async function ensureReferralCode(userId: string) {

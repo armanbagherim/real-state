@@ -9,16 +9,42 @@ import {
 import type { Prisma } from "@prisma/client";
 import { fa, shortMoney, dateFa } from "@/lib/utils";
 import { Badge, Empty } from "./page-parts";
+import { PropertyRowEdit } from "./property-row-edit";
+import {
+  AccessToggle,
+  AssignSubscriptionButton,
+} from "./property-access-controls";
 type Row = Prisma.PropertyGetPayload<{
   include: { owner: true; images: true };
 }>;
 export function PropertyTable({
   items,
   compact = false,
+  owners,
+  rate = 0,
+  assignable = false,
+  packages = [],
+  offices = [],
 }: {
   items: Row[];
   compact?: boolean;
+  owners?: { id: string; fullName: string }[];
+  rate?: number;
+  assignable?: boolean;
+  packages?: { id: string; name: string; monthlyPrice: number }[];
+  offices?: { id: string; name: string }[];
 }) {
+  const officeNames = new Map(offices.map((o) => [o.id, o.name]));
+  const values = (p: Row): Record<string, string | number | boolean> => {
+    const out: Record<string, string | number | boolean> = {};
+    for (const [key, value] of Object.entries(p))
+      if (value !== null)
+        out[key] =
+          typeof value === "boolean" || typeof value === "number"
+            ? value
+            : String(value);
+    return out;
+  };
   if (!items.length)
     return (
       <Empty
@@ -42,6 +68,9 @@ export function PropertyTable({
               </th>
               {!compact && <th>مالک</th>}
               <th>وضعیت</th>
+              <th>
+                <span className="sr-only">ویرایش</span>
+              </th>
               <th>
                 <span className="sr-only">مشاهده</span>
               </th>
@@ -116,6 +145,34 @@ export function PropertyTable({
                 )}
                 <td>
                   <Badge value={p.status} />
+                </td>
+                <td>
+                  <div className="row-actions">
+                    {owners && (
+                      <PropertyRowEdit
+                        id={p.id}
+                        owners={owners}
+                        values={values(p)}
+                        rate={rate}
+                        fileCode={p.fileCode}
+                      />
+                    )}
+                    <AccessToggle
+                      id={p.id}
+                      fileCode={p.fileCode}
+                      blocked={Boolean(p.accessBlockedAt)}
+                    />
+                    {assignable && (
+                      <AssignSubscriptionButton
+                        officeId={p.officeId}
+                        officeName={
+                          (p.officeId && officeNames.get(p.officeId)) || "دفتر"
+                        }
+                        fileCode={p.fileCode}
+                        packages={packages}
+                      />
+                    )}
+                  </div>
                 </td>
                 <td>
                   <Link

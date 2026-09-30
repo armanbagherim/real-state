@@ -1,22 +1,27 @@
 "use server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
+import { getUser, requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { isSuperAdmin } from "@/lib/access";
-import { computeCommission, type Split } from "@/lib/billing";
-import { ensureReferralCode, findReferral } from "@/repositories/billing";
-import { normalizeDigits } from "@/lib/utils";
+import { ensureReferralCode } from "@/repositories/billing";
+import { parsePeriod, periodEnd, priceFor } from "@/lib/billing";
+import { normalizeDigits, fa } from "@/lib/utils";
 import { storage } from "@/services/storage";
 import type { ActionResult } from "@/actions/manage";
 
 const packageSchema = z.object({
   name: z.string().min(2, "نام پکیج لازم است.").max(60),
   description: z.string().max(300),
-  price: z.coerce.number().int().min(0, "قیمت نامعتبر است."),
-  durationDays: z.coerce.number().int().min(1, "مدت اشتراک نامعتبر است."),
+  monthlyPrice: z.coerce.number().int().min(0, "قیمت ماهانه نامعتبر است."),
+  yearlyPrice: z.coerce.number().int().min(0, "قیمت سالانه نامعتبر است."),
   propertyLimit: z.coerce.number().int().min(0, "سقف فایل نامعتبر است."),
   agentLimit: z.coerce.number().int().min(1, "سقف مشاور نامعتبر است."),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "رنگ نامعتبر است.")
+    .default("#147d70"),
+  badge: z.string().max(20).default(""),
   active: z.boolean(),
 });
 
@@ -35,10 +40,12 @@ export async function savePackage(
     const data = packageSchema.parse({
       name: String(form.get("name") ?? ""),
       description: String(form.get("description") ?? ""),
-      price: normalizeDigits(String(form.get("price") ?? "")),
-      durationDays: normalizeDigits(String(form.get("durationDays") ?? "")),
+      monthlyPrice: normalizeDigits(String(form.get("monthlyPrice") ?? "")),
+      yearlyPrice: normalizeDigits(String(form.get("yearlyPrice") ?? "")),
       propertyLimit: normalizeDigits(String(form.get("propertyLimit") ?? "")),
       agentLimit: normalizeDigits(String(form.get("agentLimit") ?? "")),
+      color: String(form.get("color") ?? "#147d70"),
+      badge: String(form.get("badge") ?? "").slice(0, 20),
       active: form.get("active") === "on",
     });
     const id = String(form.get("id") ?? "");
@@ -55,12 +62,14 @@ export async function requestSubscription(
   _prev: ActionResult,
   form: FormData,
 ): Promise<ActionResult> {
-  const user = await requireUser();
+  const user = await getUser();
+  if (!user) return { error: "ابتدا وارد حساب خود شوید." };
   if (!user.officeId) return { error: "حساب شما به دفتری متصل نیست." };
   try {
     const packageId = String(form.get("packageId") ?? "");
     const note = String(form.get("buyerNote") ?? "").slice(0, 500);
     const file = form.get("receipt");
+    const period = parsePeriod(String(form.get("period") ?? ""));
     const pkg = await db.package.findFirst({
       where: { id: packageId, active: true },
     });
@@ -77,16 +86,15 @@ export async function requestSubscription(
         return { error: "رسید باید تصویر JPG، PNG یا WebP باشد." };
       receiptPath = await storage.save(Buffer.from(await file.arrayBuffer()));
     }
-    const referral = await findReferral(String(form.get("referralCode") ?? ""));
     await db.subscription.create({
       data: {
         officeId: user.officeId,
         packageId,
-        amount: pkg.price,
+        amount: priceFor(pkg, period),
+        period,
         receiptPath,
         buyerNote: note,
-        referredByUserId: referral?.userId ?? null,
-        referralCode: referral?.code ?? "",
+        referredByUserId: user.referredByUserId ?? null,
       },
     });
     revalidatePath("/subscriptions");
@@ -128,23 +136,26 @@ export async function approveSubscription(
     if (subscription.status !== "AWAITING_RECEIPT")
       return { error: "این درخواست قبلاً بررسی شده است." };
 
-    const users = form.getAll("userId").map(String);
-    const percents = form.getAll("percent").map(String);
-    const splits: Split[] = [];
-    for (let i = 0; i < users.length; i++) {
-      if (!users[i]) continue;
-      splits.push({
-        userId: users[i],
-        percent: Number(normalizeDigits(percents[i] ?? "")),
-      });
-    }
-    const commission = computeCommission(subscription.amount, splits);
-    if (!commission.ok) return { error: commission.error };
-
     const isFirst = await referralIsFirst(subscription.referredByUserId);
+    let entry: { userId: string; percent: number; amount: number } | null =
+      null;
+    if (isFirst && subscription.referredByUserId) {
+      const referrer = await db.user.findUnique({
+        where: { id: subscription.referredByUserId },
+        select: { commissionPercent: true },
+      });
+      if (referrer && referrer.commissionPercent > 0)
+        entry = {
+          userId: subscription.referredByUserId,
+          percent: referrer.commissionPercent,
+          amount: Math.floor(
+            (subscription.amount * referrer.commissionPercent) / 100,
+          ),
+        };
+    }
+
     const startsAt = new Date();
-    const endsAt = new Date(startsAt);
-    endsAt.setDate(endsAt.getDate() + subscription.package.durationDays);
+    const endsAt = periodEnd(startsAt, subscription.period);
 
     await db.subscription.update({
       where: { id },
@@ -155,17 +166,12 @@ export async function approveSubscription(
         approvedByUserId: admin.id,
         approvedAt: new Date(),
         referredByUserId: isFirst ? subscription.referredByUserId : null,
-        commissionEntries: {
-          create: commission.entries.map((e) => ({
-            userId: e.userId,
-            percent: e.percent,
-            amount: e.amount,
-          })),
-        },
+        ...(entry ? { commissionEntries: { create: [entry] } } : {}),
       },
     });
     revalidatePath("/admin/subscriptions");
     revalidatePath("/subscriptions");
+    revalidatePath("/buy");
     revalidatePath("/finance");
     return { success: "اشتراک فعال شد" };
   } catch (error) {
@@ -197,9 +203,46 @@ export async function rejectSubscription(
   }
 }
 
-export async function createReferralCode() {
-  const user = await requireUser();
-  const created = await ensureReferralCode(user.id);
-  revalidatePath("/finance");
-  return { code: created.code };
+export async function deletePackage(
+  _prev: ActionResult,
+  form: FormData,
+): Promise<ActionResult> {
+  try {
+    await assertSuperAdmin();
+    const id = String(form.get("id") ?? "");
+    const used = await db.subscription.count({ where: { packageId: id } });
+    if (used > 0)
+      return {
+        error: `این پکیج در ${fa(
+          used,
+        )} اشتراک استفاده شده و قابل حذف نیست. می‌توانید آن را غیرفعال کنید.`,
+      };
+    const pkg = await db.package.findUnique({ where: { id } });
+    if (!pkg) return { error: "پکیج یافت نشد." };
+    await db.package.delete({ where: { id } });
+    revalidatePath("/admin/packages");
+    revalidatePath("/buy");
+    revalidatePath("/subscriptions");
+    return { success: `پکیج «${pkg.name}» حذف شد` };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "حذف پکیج ناموفق",
+    };
+  }
+}
+
+export async function createReferralCode(): Promise<{
+  code?: string;
+  error?: string;
+}> {
+  try {
+    const user = await requireUser();
+    const created = await ensureReferralCode(user.id);
+    revalidatePath("/finance");
+    return { code: created.code };
+  } catch (error) {
+    return {
+      error: error instanceof Error ? error.message : "ساخت کد ناموفق",
+    };
+  }
 }

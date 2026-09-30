@@ -1,4 +1,4 @@
-import { getRemindersData } from "@/repositories/office";
+import { getRemindersData, getNewReminderData } from "@/repositories/office";
 import Link from "next/link";
 import { Bell, Phone } from "lucide-react";
 import { dateFa, fa } from "@/lib/utils";
@@ -6,6 +6,8 @@ import { PageHeading, Badge, Empty, Pagination } from "@/components/page-parts";
 import { RecordAction } from "@/components/record-actions";
 import { type SearchParams } from "@/repositories/properties";
 import { Button } from "@/components/ui/button";
+import { NewRecordDialog } from "@/components/new-record-dialog";
+import { reminderFields } from "@/components/record-fields";
 export default async function Page({
   searchParams,
 }: {
@@ -14,14 +16,20 @@ export default async function Page({
   const { params, page, status, items, total } = await getRemindersData(
     searchParams,
   );
+  const options = await getNewReminderData();
   return (
     <>
       <PageHeading
         title="یادآوری‌ها"
         description="سررسیدهای مهم و قدم بعدی هر ارتباط را دنبال کنید."
-        action="یادآوری جدید"
-        href="/reminders/new"
-      />
+      >
+        <NewRecordDialog
+          kind="reminder"
+          title="یادآوری جدید"
+          triggerLabel="یادآوری جدید"
+          fields={reminderFields(options.properties, options.owners)}
+        />
+      </PageHeading>
       <form className="filter-panel filter-top">
         <select name="status" defaultValue={status} aria-label="وضعیت یادآوری">
           <option value="PENDING">در انتظار</option>

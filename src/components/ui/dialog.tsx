@@ -5,16 +5,20 @@ export const Dialog = DialogPrimitive.Root;
 export const DialogTrigger = DialogPrimitive.Trigger;
 export function DialogContent({
   title,
+  size = "default",
   children,
 }: {
   title: string;
+  size?: "default" | "wide";
   children: React.ReactNode;
 }) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay className="modal-overlay" />
       <DialogPrimitive.Content
-        className="modal-content"
+        className={`modal-content${
+          size === "wide" ? " modal-content-wide" : ""
+        }`}
         aria-describedby={undefined}
       >
         <DialogPrimitive.Title className="section-title">

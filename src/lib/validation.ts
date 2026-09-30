@@ -52,6 +52,10 @@ export const propertySchema = z
     mortgagePrice: num(),
     rentPrice: num(),
     isConvertible: bool,
+    conversionRate: num(1000).default(0),
+    contactPhone: z.string().max(50).optional().default(""),
+    source: z.string().max(120).optional().default(""),
+    sourceUrl: z.string().max(1000).optional().default(""),
     description: text(0, 10000),
     internalNotes: text(0, 10000),
   })

@@ -19,7 +19,7 @@ export const getUser = async (request?: Request) => {
     include: { user: { include: { office: true } } },
   });
   return session && session.expiresAt > new Date() ? session.user : null;
-}
+};
 export async function createSessionToken(userId: string) {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 7 * 86400000);
@@ -34,7 +34,7 @@ export async function revokeBearerSession(request: Request) {
 export async function requireUser() {
   const user = await getUser();
   if (!user) redirect("/login");
-  if (user.status !== "APPROVED") redirect("/login");
+  if (user.status !== "APPROVED") redirect("/buy");
   return user;
 }
 export async function createSession(userId: string) {

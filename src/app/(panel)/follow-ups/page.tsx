@@ -1,4 +1,4 @@
-import { getFollowUpsData } from "@/repositories/office";
+import { getFollowUpsData, getNewFollowUpData } from "@/repositories/office";
 import Link from "next/link";
 import { Phone } from "lucide-react";
 import { dateFa } from "@/lib/utils";
@@ -6,6 +6,8 @@ import { PageHeading, Badge, Empty, Pagination } from "@/components/page-parts";
 import { RecordAction } from "@/components/record-actions";
 import { str, type SearchParams } from "@/repositories/properties";
 import { Button } from "@/components/ui/button";
+import { NewRecordDialog } from "@/components/new-record-dialog";
+import { followUpFields } from "@/components/record-fields";
 export default async function Page({
   searchParams,
 }: {
@@ -14,14 +16,21 @@ export default async function Page({
   const { params, page, status, items, total } = await getFollowUpsData(
     searchParams,
   );
+  const options = await getNewFollowUpData(Promise.resolve(params));
   return (
     <>
       <PageHeading
         title="پیگیری‌ها"
         description="هیچ تماس و فرصتی را از دست ندهید."
-        action="ثبت پیگیری"
-        href="/follow-ups/new"
-      />
+      >
+        <NewRecordDialog
+          kind="follow-up"
+          title="ثبت پیگیری"
+          triggerLabel="ثبت پیگیری"
+          fields={followUpFields(options.properties, options.owners)}
+          values={{ propertyId: str(params, "propertyId") }}
+        />
+      </PageHeading>
       <form className="filter-panel filter-top">
         <select name="status" defaultValue={status} aria-label="وضعیت پیگیری">
           <option value="PENDING">در انتظار</option>

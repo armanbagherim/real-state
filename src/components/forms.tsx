@@ -192,9 +192,13 @@ export function RecordForm({
                 defaultValue={formatMoneyInput(String(formValue(field.name)))}
                 required={field.required}
                 onChange={(e) => {
-                  e.currentTarget.value = formatMoneyInput(e.currentTarget.value);
+                  e.currentTarget.value = formatMoneyInput(
+                    e.currentTarget.value,
+                  );
                   if (field.name === "mortgagePrice")
-                    setMortgage(Number(e.currentTarget.value.replaceAll(",", "")));
+                    setMortgage(
+                      Number(e.currentTarget.value.replaceAll(",", "")),
+                    );
                 }}
                 aria-invalid={!!state.fields?.[field.name]}
                 aria-describedby={
@@ -364,6 +368,15 @@ export function propertyFields(
       label: "رهن و اجاره قابل تبدیل است",
       type: "checkbox",
     },
+    {
+      name: "conversionRate",
+      label: "نرخ تبدیل",
+      type: "number",
+      hint: "برای محاسبه معادل قیمت فروش",
+    },
+    { name: "contactPhone", label: "تلفن تماس", type: "tel" },
+    { name: "source", label: "منبع فایل" },
+    { name: "sourceUrl", label: "لینک منبع", type: "url", wide: true },
     { name: "description", label: "توضیحات ملک", type: "textarea", wide: true },
     {
       name: "internalNotes",

@@ -6,6 +6,7 @@ import { getUser } from "@/lib/auth";
 import { extensionOptions, extensionResponse } from "@/lib/extension-api";
 import { normalizeDigits, propertyTypes } from "@/lib/utils";
 import { saveProperty } from "@/services/properties";
+import { canCreateProperty } from "@/repositories/billing";
 import { storage } from "@/services/storage";
 
 const importSchema = z.object({
@@ -87,6 +88,10 @@ export async function POST(request: NextRequest) {
   });
   if (duplicate && !duplicate.deletedAt)
     return extensionResponse(request, { duplicate: true, property: duplicate }, { status: 409 });
+
+  const quota = await canCreateProperty(user);
+  if (quota.blocked)
+    return extensionResponse(request, { error: quota.reason }, { status: 402 });
 
   const phone = phoneValue(input.phone);
   const owner = phone

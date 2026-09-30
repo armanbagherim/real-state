@@ -5,6 +5,8 @@ import { fa } from "@/lib/utils";
 import { PageHeading, Empty, Pagination } from "@/components/page-parts";
 import { Button } from "@/components/ui/button";
 import { type SearchParams } from "@/repositories/properties";
+import { FormDialog } from "@/components/form-dialog";
+import { OwnerForm } from "@/components/owner-form";
 export default async function Page({
   searchParams,
 }: {
@@ -16,9 +18,11 @@ export default async function Page({
       <PageHeading
         title="مالکین"
         description="ارتباط‌های ارزشمند دفترتان را همیشه در دسترس داشته باشید."
-        action="ثبت مالک جدید"
-        href="/owners/new"
-      />
+      >
+        <FormDialog title="ثبت مالک جدید" triggerLabel="ثبت مالک جدید">
+          <OwnerForm />
+        </FormDialog>
+      </PageHeading>
       <form className="filter-panel filter-top">
         <div className="filter-search">
           <Search size={18} />

@@ -12,6 +12,15 @@ import {
   wrapIndex,
   propertyShareText,
 } from "../src/lib/utils";
+import {
+  computeCommission,
+  discountPercent,
+  makeReferralCode,
+  periodEnd,
+  periodLabel,
+  priceFor,
+  quotaFor,
+} from "../src/lib/billing";
 import { propertyWhere } from "../src/repositories/properties";
 import {
   canDeletePropertyImages,
@@ -186,4 +195,112 @@ test("share text summarises a property with the right price basis", () => {
   assert.ok(rent.includes("رهن"));
   assert.ok(rent.includes("اجاره"));
   assert.ok(!rent.includes("a.webp"), "no blank image line when absent");
+});
+test("commission split must total 100 and never lose money to rounding", () => {
+  const ok = computeCommission(4_000_000, [
+    { userId: "a", percent: 50 },
+    { userId: "b", percent: 20 },
+    { userId: "c", percent: 30 },
+  ]);
+  assert.equal(ok.ok, true);
+  assert.equal(
+    ok.entries.reduce((acc, e) => acc + e.amount, 0),
+    4_000_000,
+    "amounts must sum to the sale total",
+  );
+  assert.deepEqual(
+    ok.entries.map((e) => e.amount).sort((x, y) => y - x),
+    [2_000_000, 1_200_000, 800_000],
+  );
+  const rounded = computeCommission(999_999, [
+    { userId: "a", percent: 33 },
+    { userId: "b", percent: 33 },
+    { userId: "c", percent: 34 },
+  ]);
+  assert.equal(
+    rounded.entries.reduce((acc, e) => acc + e.amount, 0),
+    999_999,
+    "indivisible totals still reconcile exactly",
+  );
+  assert.ok(!computeCommission(100, [{ userId: "a", percent: 50 }]).ok);
+  assert.ok(
+    !computeCommission(100, [
+      { userId: "a", percent: 50 },
+      { userId: "a", percent: 50 },
+    ]).ok,
+    "duplicate person rejected",
+  );
+  assert.ok(
+    !computeCommission(100, [{ userId: "a", percent: 0 }]).ok,
+    "zero percent rejected",
+  );
+});
+test("office quota blocks anything without an active subscription", () => {
+  const legacy = quotaFor({
+    officeId: "o1",
+    used: 99,
+    hasSubscriptionHistory: false,
+    active: null,
+  });
+  assert.equal(
+    legacy.blocked,
+    true,
+    "a brand-new office with no subscription must be blocked",
+  );
+  assert.ok(legacy.reason.includes("اشتراک"));
+  const expired = quotaFor({
+    officeId: "o1",
+    used: 3,
+    hasSubscriptionHistory: true,
+    active: null,
+  });
+  assert.equal(expired.blocked, true);
+  assert.ok(expired.reason.includes("اشتراک"));
+  const under = quotaFor({
+    officeId: "o1",
+    used: 3,
+    hasSubscriptionHistory: true,
+    active: { propertyLimit: 10, endsAt: new Date() },
+  });
+  assert.equal(under.blocked, false);
+  assert.equal(under.remaining, 7);
+  const full = quotaFor({
+    officeId: "o1",
+    used: 10,
+    hasSubscriptionHistory: true,
+    active: { propertyLimit: 10, endsAt: new Date() },
+  });
+  assert.equal(full.blocked, true);
+  assert.equal(full.remaining, 0);
+});
+test("referral codes are 8 chars from an unambiguous alphabet", () => {
+  const code = makeReferralCode(() => new Uint8Array(8).fill(0));
+  assert.equal(code.length, 8);
+  assert.ok(!/[01IO]/.test(code), "no characters that look alike");
+});
+test("pricing picks the right period and reports the true discount", () => {
+  const pkg = { monthlyPrice: 249_000, yearlyPrice: 2_490_000 };
+  assert.equal(priceFor(pkg, "MONTHLY"), 249_000);
+  assert.equal(priceFor(pkg, "YEARLY"), 2_490_000);
+  assert.equal(discountPercent(249_000, 2_490_000), 17);
+  assert.equal(discountPercent(449_000, 3_990_000), 26);
+  assert.equal(
+    discountPercent(249_000, 249_000 * 12),
+    0,
+    "no discount when full",
+  );
+  assert.equal(discountPercent(249_000, 249_000 * 13), 0, "never negative");
+  assert.equal(discountPercent(0, 100), 0, "guard against divide by zero");
+  assert.equal(periodLabel("YEARLY"), "سالانه");
+});
+test("period end is calendar aware, not a fixed day count", () => {
+  const jan31 = new Date("2026-01-31T00:00:00Z");
+  const monthly = periodEnd(jan31, "MONTHLY");
+  assert.equal(monthly.getUTCMonth(), 1, "one month later, not 30 days");
+  assert.equal(monthly.getUTCFullYear(), 2026);
+  const yearly = periodEnd(jan31, "YEARLY");
+  assert.equal(yearly.getUTCFullYear(), 2027);
+  assert.equal(yearly.getUTCMonth(), 0);
+  const feb = periodEnd(new Date("2026-07-15T00:00:00Z"), "MONTHLY");
+  assert.equal(feb.getUTCMonth(), 7, "no month-boundary drift");
 });

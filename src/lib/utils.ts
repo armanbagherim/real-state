@@ -56,6 +56,7 @@ export const normalizeDigits = (s: string) =>
     .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
     .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
 export const statuses: Record<string, string> = {
+  AWAITING_RECEIPT: "در انتظار بررسی",
   ACTIVE: "فعال",
   RENTED: "اجاره‌رفته",
   SOLD: "فروش‌رفته",

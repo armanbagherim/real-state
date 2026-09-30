@@ -15,6 +15,8 @@ import {
   propertyAccessWhere,
   propertyCanDeleteWhere,
   propertyCanEditWhere,
+  isOfficeAdmin,
+  isSuperAdmin,
 } from "@/lib/access";
 import { saveProperty } from "@/services/properties";
 import { canCreateProperty } from "@/repositories/billing";
@@ -72,7 +74,11 @@ export async function saveRecord(
         const row = id
           ? await db.owner.update({ where: { id }, data })
           : await db.owner.create({
-              data: { ...data, officeId: user.officeId, createdByUserId: user.id },
+              data: {
+                ...data,
+                officeId: user.officeId,
+                createdByUserId: user.id,
+              },
             });
         path = `/owners/${row.id}`;
         break;
@@ -148,7 +154,9 @@ export async function saveRecord(
               },
             });
           await tx.settings.upsert({
-            where: user.officeId ? { officeId: user.officeId } : { id: "office" },
+            where: user.officeId
+              ? { officeId: user.officeId }
+              : { id: "office" },
             create: {
               ...data,
               id: user.officeId ? `office-${user.officeId}` : "office",
@@ -157,6 +165,80 @@ export async function saveRecord(
             update: data,
           });
         });
+        break;
+      }
+      case "agent-edit": {
+        if (!isOfficeAdmin(user) && !isSuperAdmin(user))
+          throw new Error("فقط مدیر می‌تواند مشاور را ویرایش کند.");
+        const data = z
+          .object({
+            userId: z.string().min(1),
+            name: z.string().trim().min(2, "نام را کامل وارد کنید.").max(100),
+            mobile: z
+              .string()
+              .transform((value) => normalizeDigits(value).replace(/\D/g, ""))
+              .refine(
+                (value) => /^09\d{9}$/.test(value),
+                "شماره موبایل معتبر وارد کنید.",
+              ),
+            commissionPercent: z.coerce
+              .number()
+              .int("درصد باید عدد صحیح باشد.")
+              .min(0, "درصد کمیسیون بین ۰ تا ۱۰۰ است.")
+              .max(100, "درصد کمیسیون بین ۰ تا ۱۰۰ است.")
+              .default(0),
+          })
+          .parse(raw);
+        const target = await db.user.findFirst({
+          where:
+            user.role === "SUPER_ADMIN"
+              ? { id: data.userId, role: "AGENT" }
+              : { id: data.userId, officeId: user.officeId, role: "AGENT" },
+        });
+        if (!target) throw new Error("مشاور یافت نشد.");
+        const clash = await db.user.findFirst({
+          where: { mobile: data.mobile, NOT: { id: target.id } },
+          select: { id: true },
+        });
+        if (clash) throw new Error("این شماره موبایل قبلاً ثبت شده است.");
+        await db.user.update({
+          where: { id: target.id },
+          data: {
+            name: data.name,
+            mobile: data.mobile,
+            commissionPercent: data.commissionPercent,
+          },
+        });
+        path = "/agents";
+        break;
+      }
+      case "office-new": {
+        if (user.role !== "SUPER_ADMIN")
+          throw new Error("فقط مدیر کل می‌تواند املاک جدید ثبت کند.");
+        const data = z
+          .object({
+            officeName: z
+              .string()
+              .trim()
+              .min(2, "نام املاک را وارد کنید.")
+              .max(120),
+            officePhone: z.string().trim().max(50).default(""),
+            officeAddress: z.string().trim().max(300).default(""),
+            adminsCanViewAgentFiles: z.preprocess(
+              (v) => v === "on",
+              z.boolean(),
+            ),
+          })
+          .parse(raw);
+        await db.office.create({
+          data: {
+            name: data.officeName,
+            phone: data.officePhone,
+            address: data.officeAddress,
+            adminsCanViewAgentFiles: data.adminsCanViewAgentFiles,
+          },
+        });
+        path = "/offices";
         break;
       }
       case "office": {
@@ -168,7 +250,10 @@ export async function saveRecord(
             officeName: z.string().trim().min(2).max(120),
             officePhone: z.string().trim().max(50),
             officeAddress: z.string().trim().max(300),
-            adminsCanViewAgentFiles: z.preprocess((v) => v === "on", z.boolean()),
+            adminsCanViewAgentFiles: z.preprocess(
+              (v) => v === "on",
+              z.boolean(),
+            ),
           })
           .parse(raw);
         await db.office.update({
@@ -200,7 +285,8 @@ export async function saveRecord(
             AND: [propertyCanEditWhere(user)],
           },
         });
-        if (!property) throw new Error("اجازه اشتراک‌گذاری این فایل را ندارید.");
+        if (!property)
+          throw new Error("اجازه اشتراک‌گذاری این فایل را ندارید.");
         const shareUser = await db.user.findFirst({
           where: {
             id: data.userId,
@@ -209,7 +295,8 @@ export async function saveRecord(
             ...(user.role === "SUPER_ADMIN" ? {} : { officeId: user.officeId }),
           },
         });
-        if (!shareUser) throw new Error("مشاور انتخاب‌شده متعلق به این دفتر نیست.");
+        if (!shareUser)
+          throw new Error("مشاور انتخاب‌شده متعلق به این دفتر نیست.");
         await db.propertyShare.upsert({
           where: {
             propertyId_userId: {
@@ -236,7 +323,10 @@ export async function saveRecord(
             mobile: z
               .string()
               .transform((value) => normalizeDigits(value).replace(/\D/g, ""))
-              .refine((value) => /^09\d{9}$/.test(value), "شماره موبایل معتبر وارد کنید."),
+              .refine(
+                (value) => /^09\d{9}$/.test(value),
+                "شماره موبایل معتبر وارد کنید.",
+              ),
             password: agentPassword,
           })
           .parse(raw);
@@ -274,6 +364,12 @@ export async function saveRecord(
             status: z.enum(["APPROVED", "REJECTED", "PENDING"]),
             role: z.enum(["OFFICE_ADMIN", "AGENT"]),
             officeId: z.string().optional(),
+            commissionPercent: z.coerce
+              .number()
+              .int()
+              .min(0, "درصد کمیسیون نامعتبر است.")
+              .max(100, "درصد کمیسیون نامعتبر است.")
+              .default(0),
           })
           .parse(raw);
         const target = await db.user.findFirst({
@@ -284,13 +380,16 @@ export async function saveRecord(
         });
         if (!target) throw new Error("کاربر پیدا نشد.");
         if (user.role === "OFFICE_ADMIN" && data.role !== "AGENT")
-          throw new Error("مدیر املاک فقط می‌تواند مشاوران دفتر خودش را مدیریت کند.");
+          throw new Error(
+            "مدیر املاک فقط می‌تواند مشاوران دفتر خودش را مدیریت کند.",
+          );
         await db.$transaction([
           db.user.update({
             where: { id: target.id },
             data: {
               status: data.status,
               role: data.role,
+              commissionPercent: data.commissionPercent,
               officeId:
                 user.role === "SUPER_ADMIN"
                   ? data.officeId || target.officeId
@@ -311,6 +410,56 @@ export async function saveRecord(
         path = "/users";
         break;
       }
+      case "admin-edit": {
+        if (user.role !== "SUPER_ADMIN")
+          throw new Error("فقط مدیر کل می‌تواند ادمین‌ها را ویرایش کند.");
+        const data = z
+          .object({
+            userId: z.string().min(1),
+            name: z.string().trim().min(2, "نام را کامل وارد کنید.").max(100),
+            mobile: z
+              .string()
+              .transform((value) => normalizeDigits(value).replace(/\D/g, ""))
+              .refine(
+                (value) => /^09\d{9}$/.test(value),
+                "شماره موبایل معتبر وارد کنید.",
+              ),
+            status: z
+              .enum(["APPROVED", "REJECTED", "PENDING"])
+              .default("APPROVED"),
+            commissionPercent: z.coerce
+              .number()
+              .int("درصد باید عدد صحیح باشد.")
+              .min(0, "درصد کمیسیون بین ۰ تا ۱۰۰ است.")
+              .max(100, "درصد کمیسیون بین ۰ تا ۱۰۰ است.")
+              .default(0),
+          })
+          .parse(raw);
+        const target = await db.user.findFirst({
+          where: { id: data.userId, role: "SUPER_ADMIN" },
+        });
+        if (!target) throw new Error("ادمین یافت نشد.");
+        const clash = await db.user.findFirst({
+          where: {
+            OR: [{ mobile: data.mobile }, { username: data.mobile }],
+            NOT: { id: target.id },
+          },
+          select: { id: true },
+        });
+        if (clash) throw new Error("این شماره موبایل قبلاً ثبت شده است.");
+        await db.user.update({
+          where: { id: target.id },
+          data: {
+            name: data.name,
+            mobile: data.mobile,
+            username: data.mobile,
+            status: data.status,
+            commissionPercent: data.commissionPercent,
+          },
+        });
+        path = "/users";
+        break;
+      }
       case "admin": {
         if (user.role !== "SUPER_ADMIN")
           throw new Error("فقط مدیر کل می‌تواند ادمین جدید بسازد.");
@@ -320,7 +469,10 @@ export async function saveRecord(
             mobile: z
               .string()
               .transform((value) => normalizeDigits(value).replace(/\D/g, ""))
-              .refine((value) => /^09\d{9}$/.test(value), "شماره موبایل معتبر وارد کنید."),
+              .refine(
+                (value) => /^09\d{9}$/.test(value),
+                "شماره موبایل معتبر وارد کنید.",
+              ),
             password: agentPassword,
           })
           .parse(raw);
@@ -398,7 +550,10 @@ export async function updateRecord(
           })
         )
           throw new Error("ابتدا قرارداد فعال این فایل را لغو یا پایان دهید.");
-        await db.property.update({ where: { id }, data: { deletedAt: new Date() } });
+        await db.property.update({
+          where: { id },
+          data: { deletedAt: new Date() },
+        });
       } else {
         const status = z
           .enum(["ACTIVE", "RENTED", "SOLD", "INACTIVE", "ARCHIVED"])
@@ -438,7 +593,10 @@ export async function updateRecord(
             userId: owner.id,
             approvedByUserId: user.id,
             status,
-            note: status === "APPROVED" ? "تأیید املاک توسط مدیر کل" : "رد املاک توسط مدیر کل",
+            note:
+              status === "APPROVED"
+                ? "تأیید املاک توسط مدیر کل"
+                : "رد املاک توسط مدیر کل",
           },
         }),
         ...(status === "APPROVED"
@@ -446,10 +604,15 @@ export async function updateRecord(
           : [db.session.deleteMany({ where: { userId: owner.id } })]),
       ]);
     } else if (kind === "follow-up") {
-      const status = z.enum(["COMPLETED", "CANCELLED", "PENDING"]).parse(action);
+      const status = z
+        .enum(["COMPLETED", "CANCELLED", "PENDING"])
+        .parse(action);
       await db.followUp.update({
         where: { id },
-        data: { status, completedAt: status === "COMPLETED" ? new Date() : null },
+        data: {
+          status,
+          completedAt: status === "COMPLETED" ? new Date() : null,
+        },
       });
     } else if (kind === "agent" && action === "delete") {
       if (user.role !== "OFFICE_ADMIN" || !user.officeId)
@@ -550,7 +713,10 @@ export async function updateRecord(
             },
           });
         }
-        await tx.reminder.update({ where: { id }, data: { status: "COMPLETED" } });
+        await tx.reminder.update({
+          where: { id },
+          data: { status: "COMPLETED" },
+        });
       });
     } else throw new Error("درخواست نامعتبر است.");
     revalidatePath("/", "layout");

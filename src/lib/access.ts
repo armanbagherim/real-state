@@ -1,9 +1,6 @@
 import { Prisma, type User } from "@prisma/client";
 
-export type CurrentUser = Pick<
-  User,
-  "id" | "role" | "status" | "officeId"
-> & {
+export type CurrentUser = Pick<User, "id" | "role" | "status" | "officeId"> & {
   office?: { adminsCanViewAgentFiles: boolean } | null;
 };
 
@@ -22,16 +19,31 @@ export function canManageUsers(user: CurrentUser) {
 export function propertyAccessWhere(
   user: CurrentUser,
 ): Prisma.PropertyWhereInput {
+  const visible: Prisma.PropertyWhereInput = {
+    accessBlockedAt: null,
+  };
   if (isSuperAdmin(user)) return {};
-  const shared: Prisma.PropertyWhereInput = { shares: { some: { userId: user.id } } };
-  if (isOfficeAdmin(user) && user.officeId && user.office?.adminsCanViewAgentFiles)
-    return { OR: [{ officeId: user.officeId }, shared] };
-  return { OR: [{ ownerUserId: user.id }, shared] };
+  const shared: Prisma.PropertyWhereInput = {
+    shares: { some: { userId: user.id } },
+  };
+  if (
+    isOfficeAdmin(user) &&
+    user.officeId &&
+    user.office?.adminsCanViewAgentFiles
+  )
+    return { AND: [visible, { OR: [{ officeId: user.officeId }, shared] }] };
+  return {
+    AND: [visible, { OR: [{ ownerUserId: user.id }, shared] }],
+  };
 }
 
 export function ownerAccessWhere(user: CurrentUser): Prisma.OwnerWhereInput {
   if (isSuperAdmin(user)) return {};
-  if (isOfficeAdmin(user) && user.officeId && user.office?.adminsCanViewAgentFiles)
+  if (
+    isOfficeAdmin(user) &&
+    user.officeId &&
+    user.office?.adminsCanViewAgentFiles
+  )
     return { officeId: user.officeId };
   return {
     OR: [
@@ -45,12 +57,20 @@ export function propertyCanEditWhere(
   user: CurrentUser,
 ): Prisma.PropertyWhereInput {
   if (isSuperAdmin(user)) return {};
-  if (isOfficeAdmin(user) && user.officeId && user.office?.adminsCanViewAgentFiles)
+  if (
+    isOfficeAdmin(user) &&
+    user.officeId &&
+    user.office?.adminsCanViewAgentFiles
+  )
     return { officeId: user.officeId };
   return {
     OR: [
       { ownerUserId: user.id },
-      { shares: { some: { userId: user.id, permission: { in: ["EDIT", "MANAGE"] } } } },
+      {
+        shares: {
+          some: { userId: user.id, permission: { in: ["EDIT", "MANAGE"] } },
+        },
+      },
     ],
   };
 }
@@ -59,7 +79,11 @@ export function propertyCanDeleteWhere(
   user: CurrentUser,
 ): Prisma.PropertyWhereInput {
   if (isSuperAdmin(user)) return {};
-  if (isOfficeAdmin(user) && user.officeId && user.office?.adminsCanViewAgentFiles)
+  if (
+    isOfficeAdmin(user) &&
+    user.officeId &&
+    user.office?.adminsCanViewAgentFiles
+  )
     return { officeId: user.officeId };
   return {
     OR: [
@@ -73,7 +97,11 @@ export function propertyCanUploadImageWhere(
   user: CurrentUser,
 ): Prisma.PropertyWhereInput {
   if (isSuperAdmin(user)) return {};
-  if (isOfficeAdmin(user) && user.officeId && user.office?.adminsCanViewAgentFiles)
+  if (
+    isOfficeAdmin(user) &&
+    user.officeId &&
+    user.office?.adminsCanViewAgentFiles
+  )
     return { officeId: user.officeId };
   return {
     OR: [

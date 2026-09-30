@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { siteUrl } from "@/lib/site";
 import { Button } from "@/components/ui/button";
+import { LandingPricing } from "@/components/landing-pricing";
 
 export const metadata: Metadata = {
   metadataBase: siteUrl ? new URL(siteUrl) : undefined,
@@ -104,6 +105,8 @@ const steps = [
 export default function LandingPage() {
   return (
     <main id="main" className="lp">
+      <span className="lp-blob a" aria-hidden="true" />
+      <span className="lp-blob b" aria-hidden="true" />
       <header className="lp-header">
         <Link className="lp-logo" href="/">
           <House size={26} />
@@ -118,6 +121,7 @@ export default function LandingPage() {
       </header>
 
       <section className="lp-hero">
+        <span className="lp-blob c" aria-hidden="true" />
         <span className="eyebrow">فضای کار حرفه‌ای مشاوران املاک</span>
         <h1>
           هر فایل، یک فرصت.
@@ -159,6 +163,15 @@ export default function LandingPage() {
             </article>
           ))}
         </div>
+      </section>
+
+      <section className="lp-section lp-alt">
+        <h2>پکیج‌های اشتراک</h2>
+        <p className="lp-section-sub">
+          پکیج مناسب دفترتان را انتخاب کنید. پرداخت کارت به کارت است و دسترسی
+          بلافاصله پس از تأیید فعال می‌شود.
+        </p>
+        <LandingPricing />
       </section>
 
       <section className="lp-section lp-alt">

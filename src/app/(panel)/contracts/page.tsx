@@ -1,9 +1,11 @@
-import { getContractsData } from "@/repositories/office";
+import { getContractsData, getNewContractData } from "@/repositories/office";
 import Link from "next/link";
 import { dateFa, shortMoney } from "@/lib/utils";
 import { PageHeading, Badge, Empty, Pagination } from "@/components/page-parts";
 import { str, type SearchParams } from "@/repositories/properties";
 import { Button } from "@/components/ui/button";
+import { NewRecordDialog } from "@/components/new-record-dialog";
+import { contractFields } from "@/components/record-fields";
 export default async function Page({
   searchParams,
 }: {
@@ -12,14 +14,22 @@ export default async function Page({
   const { params, page, status, items, total } = await getContractsData(
     searchParams,
   );
+  const options = await getNewContractData(Promise.resolve(params));
   return (
     <>
       <PageHeading
         title="قراردادها"
         description="قراردادها، تاریخچه تمدید و سررسیدها را یکجا مدیریت کنید."
-        action="ثبت قرارداد"
-        href="/contracts/new"
-      />
+      >
+        <NewRecordDialog
+          kind="contract"
+          title="ثبت قرارداد اجاره"
+          triggerLabel="ثبت قرارداد"
+          wide
+          fields={contractFields(options.properties)}
+          values={{ propertyId: str(params, "propertyId") }}
+        />
+      </PageHeading>
       <form className="filter-panel filter-top">
         <select aria-label="وضعیت قرارداد" name="status" defaultValue={status}>
           <option value="">همه قراردادها</option>

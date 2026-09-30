@@ -1,6 +1,7 @@
-import { getNewContractData } from "@/repositories/office";
+﻿import { getNewContractData } from "@/repositories/office";
 import { PageHeading } from "@/components/page-parts";
-import { RecordForm, type Field } from "@/components/forms";
+import { RecordForm } from "@/components/forms";
+import { contractFields } from "@/components/record-fields";
 import { str, type SearchParams } from "@/repositories/properties";
 export default async function Page({
   searchParams,
@@ -10,49 +11,7 @@ export default async function Page({
   const { params, previous, properties } = await getNewContractData(
     searchParams,
   );
-  const fields: Field[] = [
-    {
-      name: "propertyId",
-      label: "ملک",
-      type: "select",
-      options: [
-        { value: "", label: "انتخاب ملک" },
-        ...properties.map((p) => ({
-          value: p.id,
-          label: `${p.fileCode} · ${p.title}`,
-        })),
-      ],
-      required: true,
-      wide: true,
-    },
-    { name: "tenantName", label: "نام مستأجر", required: true },
-    {
-      name: "tenantMobile",
-      label: "شماره همراه مستأجر",
-      type: "tel",
-      required: true,
-    },
-    { name: "startDate", label: "تاریخ شروع", type: "date", required: true },
-    { name: "endDate", label: "تاریخ پایان", type: "date", required: true },
-    {
-      name: "mortgageAmount",
-      label: "رهن (تومان)",
-      type: "number",
-      required: true,
-    },
-    {
-      name: "rentAmount",
-      label: "اجاره ماهانه (تومان)",
-      type: "number",
-      required: true,
-    },
-    {
-      name: "description",
-      label: "توضیحات قرارداد",
-      type: "textarea",
-      wide: true,
-    },
-  ];
+  const fields = contractFields(properties);
   return (
     <>
       <PageHeading

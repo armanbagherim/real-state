@@ -11,6 +11,7 @@ import { LoginForm } from "./form";
 export default async function Login() {
   const user = await getUser();
   if (user?.status === "APPROVED") redirect("/dashboard");
+  if (user) redirect("/buy");
   return (
     <main id="main" className="login-page">
       <section className="login-brand">

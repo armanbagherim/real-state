@@ -1,8 +1,10 @@
 import { Prisma } from "@prisma/client";
+import { randomBytes } from "node:crypto";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 import { tehranDayRange, normalizeDigits } from "@/lib/utils";
+import { makeReferralCode } from "@/lib/billing";
 import {
   ownerAccessWhere,
   propertyAccessWhere,
@@ -85,7 +87,11 @@ export async function getDashboardData() {
       take: 4,
     }),
     db.leaseContract.findMany({
-      where: { status: "ACTIVE", endDate: { lte: in60 }, property: { is: scope } },
+      where: {
+        status: "ACTIVE",
+        endDate: { lte: in60 },
+        property: { is: scope },
+      },
       include: { owner: true, property: true },
       orderBy: { endDate: "asc" },
       take: 3,
@@ -181,7 +187,9 @@ export async function getPropertyDetailData(params: Promise<{ id: string }>) {
     include: {
       owner: true,
       ownerUser: { select: { id: true, name: true } },
-      shares: { include: { user: { select: { id: true, name: true, mobile: true } } } },
+      shares: {
+        include: { user: { select: { id: true, name: true, mobile: true } } },
+      },
       images: { orderBy: { sortOrder: "asc" } },
       history: {
         include: { changedByUser: { select: { name: true } } },
@@ -446,9 +454,22 @@ export async function getSettingsData() {
 export async function getUsersData() {
   const user = await requireUser();
   if (user.role !== "SUPER_ADMIN") notFound();
+  const missing = await db.user.findMany({
+    where: { role: "SUPER_ADMIN", referralCode: null },
+    select: { id: true },
+    take: 200,
+  });
+  if (missing.length)
+    await db.referralCode.createMany({
+      data: missing.map((u) => ({
+        code: makeReferralCode(randomBytes),
+        userId: u.id,
+      })),
+      skipDuplicates: true,
+    });
   const users = await db.user.findMany({
     where: { role: "SUPER_ADMIN" },
-    include: { office: true },
+    include: { office: true, referralCode: true },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 200,
   });
@@ -462,7 +483,13 @@ export async function getOfficesData() {
     include: {
       users: {
         where: { role: "OFFICE_ADMIN" },
-        select: { id: true, name: true, mobile: true, status: true, createdAt: true },
+        select: {
+          id: true,
+          name: true,
+          mobile: true,
+          status: true,
+          createdAt: true,
+        },
         orderBy: { createdAt: "asc" },
         take: 1,
       },
@@ -479,6 +506,7 @@ export async function getAgentsData() {
   if (user.role !== "OFFICE_ADMIN" || !user.officeId) notFound();
   const agents = await db.user.findMany({
     where: { officeId: user.officeId, role: "AGENT" },
+    include: { referralCode: true },
     orderBy: { createdAt: "desc" },
     take: 200,
   });

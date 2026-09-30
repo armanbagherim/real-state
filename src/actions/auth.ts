@@ -3,6 +3,7 @@ import { compare, hash } from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { findReferral } from "@/repositories/billing";
 import { createSession, clearSession } from "@/lib/auth";
 import { z } from "zod";
 
@@ -122,6 +123,7 @@ export async function register(
   const data = parsed.data;
   try {
     const passwordHash = await hash(data.password, 12);
+    const referral = await findReferral(String(form.get("referralCode") ?? ""));
     await db.$transaction(async (tx) => {
       const office = await tx.office.create({
         data: {
@@ -139,6 +141,7 @@ export async function register(
           role: "OFFICE_ADMIN",
           status: "PENDING",
           officeId: office.id,
+          referredByUserId: referral?.userId ?? null,
         },
       });
       await tx.userApproval.create({

@@ -79,14 +79,22 @@ enum SubscriptionStatus {
   EXPIRED
 }
 
+enum BillingPeriod {
+  MONTHLY
+  YEARLY
+}
+
 model Package {
   id            String         @id @default(cuid())
   name          String
   description   String         @default("")
-  price         Int
-  durationDays  Int
+  monthlyPrice  Int
+  yearlyPrice   Int
   propertyLimit Int
   agentLimit    Int
+  color         String         @default("#147d70")
+  badge         String         @default("")
+  internal      Boolean        @default(false)
   active        Boolean        @default(true)
   sortOrder     Int            @default(0)
   createdAt     DateTime       @default(now())
@@ -102,6 +110,7 @@ model Subscription {
   office            Office             @relation(fields: [officeId], references: [id], onDelete: Cascade)
   packageId         String
   package           Package            @relation(fields: [packageId], references: [id])
+  period            BillingPeriod      @default(MONTHLY)
   status            SubscriptionStatus @default(AWAITING_RECEIPT)
   amount            Int
   receiptPath       String             @default("")
@@ -174,6 +183,7 @@ model User {
   passwordHash          String
   role                  Role                    @default(AGENT)
   status                UserStatus              @default(PENDING)
+  commissionPercent     Int                     @default(0)
   officeId              String?
   office                Office?                 @relation(fields: [officeId], references: [id])
   referredByUserId      String?
@@ -283,6 +293,7 @@ model Property {
   rentPrice       Decimal                 @default(0) @db.Decimal(18, 0)
   isConvertible   Boolean                 @default(false)
   conversionRate  Decimal?                @db.Decimal(8, 5)
+  accessBlockedAt DateTime?
   description     String?
   internalNotes   String?
   source          String?
