@@ -145,15 +145,12 @@ export async function POST(request: NextRequest) {
     );
     if (duplicate?.deletedAt)
       await db.propertyImage.deleteMany({ where: { propertyId: property.id } });
-    const imageUrls: string[] = [];
-    for (const image of [...new Set(input.images)].slice(0, 20)) {
-      try {
-        const saved = await saveRemoteImage(image);
-        if (saved) imageUrls.push(saved);
-      } catch {
-        // A broken remote image must not fail the property import.
-      }
-    }
+    const saved = await Promise.all(
+      [...new Set(input.images)].slice(0, 20).map((image) =>
+        saveRemoteImage(image).catch(() => null),
+      ),
+    );
+    const imageUrls = saved.filter((url): url is string => Boolean(url));
     if (imageUrls.length)
       await db.propertyImage.createMany({
         data: imageUrls.map((url, sortOrder) => ({ propertyId: property.id, url, sortOrder })),

@@ -24,6 +24,16 @@ export function PropertyGallery({
   const [busy, setBusy] = useState(false);
   const startX = useRef(0);
   const dragX = useRef(0);
+  const strip = useRef<HTMLDivElement>(null);
+
+  const nudge = (dir: number) => {
+    const el = strip.current;
+    if (!el) return;
+    el.scrollBy({
+      left: dir * Math.max(200, el.clientWidth * 0.8),
+      behavior: "smooth",
+    });
+  };
 
   const go = useCallback(
     (delta: number) =>
@@ -55,9 +65,11 @@ export function PropertyGallery({
   if (!images.length) {
     return (
       <div className="property-gallery">
-        <div className="gallery-empty">
-          <Building2 size={64} />
-          <span>تصاویر این ملک را اضافه کنید</span>
+        <div className="gallery-strip">
+          <div className="gallery-empty">
+            <Building2 size={64} />
+            <span>تصاویر این ملک را اضافه کنید</span>
+          </div>
         </div>
       </div>
     );
@@ -68,28 +80,52 @@ export function PropertyGallery({
 
   return (
     <div className="property-gallery">
-      {images.map((img, i) => (
-        <div className="gallery-item" key={img.id}>
-          <button type="button" onClick={() => setIndex(i)}>
-            <img
-              src={img.url}
-              alt={`${title} - ${fa(i + 1)}`}
-              width={500}
-              height={300}
-            />
-          </button>
-          {canDelete && (
-            <button
-              type="button"
-              className="gallery-remove"
-              aria-label={`حذف تصویر ${fa(i + 1)}`}
-              onClick={() => setPending(img.id)}
-            >
-              <Trash2 size={14} />
+      <div
+        className="gallery-strip"
+        ref={strip}
+        tabIndex={0}
+        role="group"
+        aria-label={`تصاویر ${title}`}
+      >
+        {images.map((img, i) => (
+          <div className="gallery-item" key={img.id}>
+            <button type="button" onClick={() => setIndex(i)}>
+              <img
+                src={img.url}
+                alt={`${title} - ${fa(i + 1)}`}
+                width={500}
+                height={300}
+              />
             </button>
-          )}
-        </div>
-      ))}
+            {canDelete && (
+              <button
+                type="button"
+                className="gallery-remove"
+                aria-label={`حذف تصویر ${fa(i + 1)}`}
+                onClick={() => setPending(img.id)}
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <button
+        type="button"
+        className="gallery-nav gallery-nav--prev"
+        aria-label="تصاویر قبلی"
+        onClick={() => nudge(-1)}
+      >
+        <ChevronRight size={18} />
+      </button>
+      <button
+        type="button"
+        className="gallery-nav gallery-nav--next"
+        aria-label="تصاویر بعدی"
+        onClick={() => nudge(1)}
+      >
+        <ChevronLeft size={18} />
+      </button>
       <Root
         open={pending !== null}
         onOpenChange={(open) => !open && setPending(null)}

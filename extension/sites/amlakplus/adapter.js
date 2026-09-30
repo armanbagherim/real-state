@@ -47,6 +47,26 @@
     const match = text(root).match(/(\d+)\s*[\/:／]\s*(\d+)/);
     return match ? { total: Number(match[1]), current: Number(match[2]) } : null;
   };
+  const shortHash = (value) => {
+    let hash = 5381;
+    for (let index = 0; index < value.length; index += 1)
+      hash = (hash * 33) ^ value.charCodeAt(index);
+    return (hash >>> 0).toString(36);
+  };
+
+  const closeDialog = (dialog) => {
+    const close = dialog?.querySelector(
+      ".gallery__close, button[aria-label*='بستن'], .mdi-close, .mdi-close-circle, .mdi-close-thick",
+    );
+    if (close) {
+      close.click();
+      return true;
+    }
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+    );
+    return false;
+  };
 
   const activeImage = (root) => {
     const slide = [...root.querySelectorAll(".v-window-item")]
@@ -92,7 +112,7 @@
       }
       return [...seen];
     } finally {
-      dialog.querySelector(".gallery__close, button[aria-label*='بستن'], [aria-label*='بستن']")?.click();
+      closeDialog(dialog);
     }
   }
 
@@ -105,18 +125,33 @@
   }
 
   async function extractPhone(card, report) {
-    const button = [...card.querySelectorAll("button, a")].find((node) => /نمایش شماره|شماره/.test(text(node)));
+    const actions = card.querySelector("[can-get-phone]") || card;
+    const button = [...actions.querySelectorAll("button, a")].find((node) =>
+      /نمایش\s*شماره/.test(text(node)),
+    );
     if (!button) return null;
     button.click();
-    const dialog = await waitFor(() =>
-      [...document.querySelectorAll(".v-dialog__content.v-dialog__content--active[role='dialog'], [role='dialog']")]
-        .find((node) => /نمایش شماره/.test(text(node))),
-    );
+    // The phone sheet is a Vuetify bottom sheet: `.v-dialog--active` with a
+    // `.bottom-sheet-panel__body`, and it carries no role="dialog".
+    const dialog = await waitFor(() => {
+      const sheets = [
+        ...document.querySelectorAll(".v-dialog--active .bottom-sheet-panel, .bottom-sheet-panel"),
+      ];
+      // The topmost sheet is the one this click just opened.
+      const top = sheets.filter((node) => /نمایش\s*شماره/.test(text(node))).at(-1);
+      return top ?? null;
+    });
     const phone = await waitFor(() => {
       const body = dialog?.querySelector(".bottom-sheet-panel__body") || dialog;
-      return phoneFrom(text(body)) || phoneFrom(text(card));
+      return (
+        phoneFrom(text(body)) ||
+        [...actions.querySelectorAll(".v-btn__content, button, a")]
+          .map((node) => phoneFrom(text(node)))
+          .find(Boolean) ||
+        null
+      );
     });
-    dialog?.querySelector("button[aria-label*='بستن'], .bottom-sheet-panel__header button")?.click();
+    closeDialog(dialog);
     if (phone) report("شماره دریافت شد");
     return phone;
   }
@@ -156,7 +191,10 @@
       const title = text(card.querySelector(".estate-box__main-info h3, h3"));
       if (!title) throw new Error("عنوان ملک پیدا نشد");
       const region = text(card.querySelector(".estate-box__region"));
-      const regionClean = region.replace(/خرید|فروش|رهن|اجاره/g, "").trim();
+      const regionClean = region
+        .replace(/خرید|فروش|رهن|اجاره/g, "")
+        .replace(/[\s،,]+$/, "")
+        .trim();
       const full = text(card);
       const transactionType = /رهن|اجاره/.test(region + full) ? "RENT" : "SALE";
       const details = metadata(card);
@@ -169,9 +207,27 @@
       const description = text(card.querySelector(".description__text")) || full;
       const ownerMatch = full.match(/نام مالک\s*:\s*([^\n]+?)(?=وضعیت سند|$)/);
       const has = (label) => new RegExp(label).test(full);
-      const stableSourceUrl = sourceLink?.href || (fileCode
-        ? new URL(`/estates#file-${normalizeDigits(fileCode)}`, location.origin).href
-        : images[0] || new URL(location.pathname, location.origin).href);
+      const price = prices(card, transactionType);
+      // The dedup key has to identify the card, not the page or one of its
+      // images: a bare listing path collides across every card on a listing,
+      // and a CDN image URL is not a stable identity.
+      const detailLink =
+        sourceLink && new URL(sourceLink.href, location.href).pathname !== location.pathname
+          ? sourceLink.href
+          : null;
+      const identity = [
+        title,
+        regionClean,
+        details.area,
+        price.salePrice,
+        price.mortgagePrice,
+        price.rentPrice,
+      ].join("|");
+      const stableSourceUrl =
+        detailLink ||
+        (fileCode
+          ? new URL(`/estates#file-${normalizeDigits(fileCode)}`, location.origin).href
+          : `${location.href.split("#")[0]}#${shortHash(identity)}`);
       return {
         title,
         transactionType,
@@ -181,7 +237,7 @@
         neighborhood: regionClean || "نامشخص",
         address: "آدرس از آگهی دریافت نشد",
         ...details,
-        ...prices(card, transactionType),
+        ...price,
         isConvertible: false,
         description: description.slice(0, 9000),
         ownerName: ownerMatch?.[1]?.trim(),

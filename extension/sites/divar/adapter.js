@@ -21,6 +21,19 @@
     const match = normalized.match(/09\d{9,10}/);
     return match ? match[0] : null;
   };
+  const closeDialog = () => {
+    const close = document.querySelector(
+      '[role="dialog"] button[aria-label*="بستن"], [role="dialog"] button[aria-label*="close" i], [role="dialog"] button[title*="بستن"], [data-testid="close-button"]',
+    );
+    if (close) {
+      close.click();
+      return true;
+    }
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }),
+    );
+    return false;
+  };
   const waitFor = async (predicate, timeout = 2500) => {
     const started = Date.now();
     while (Date.now() - started < timeout) {
@@ -98,13 +111,16 @@
         .filter((row) => row.title && row.value)
         .map((row) => `${row.title}: ${row.value}`)
         .join("\n");
-      const galleryButtons = [...card.querySelectorAll('button[aria-label*="تصویر"]')];
       const seenImages = new Set(imagesIn(card));
-      for (let index = 0; index < galleryButtons.length; index += 1) {
-        galleryButtons[index].click();
+      for (let step = 0; step < 20; step += 1) {
+        const next = [...card.querySelectorAll('button[aria-label*="تصویر"]')]
+          .find((node) => !node.dataset.ashianClicked);
+        if (!next) break;
+        next.dataset.ashianClicked = "true";
+        next.click();
         await wait(180);
         imagesIn(card).forEach((image) => seenImages.add(image));
-        report(`دریافت تصاویر ${index + 1}/${galleryButtons.length}`);
+        report(`دریافت تصاویر (${seenImages.size})`);
       }
       const phoneButton = [...card.querySelectorAll("button")]
         .find((node) => /اطلاعات تماس|نمایش شماره/.test(text(node)));
@@ -116,7 +132,7 @@
       if (phoneButton) {
         phoneButton.click();
         phone = await waitFor(contactPhone, 1800);
-        document.querySelector('[role="dialog"] button[aria-label*="بستن"], [role="dialog"] button')?.click();
+        if (closeDialog()) await wait(120);
         if (phone) report("شماره دریافت شد");
       }
       const city = text(card.querySelector('.kt-breadcrumbs__action-text'))?.includes("تهران") ? "تهران" : "تهران";
