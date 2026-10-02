@@ -5,6 +5,7 @@ import { Shell } from "@/components/shell";
 import { SubscriptionRequired } from "@/components/subscription-required";
 import { activeSubscription, ensureReferralCode } from "@/repositories/billing";
 import { daysUntil } from "@/lib/billing";
+import { listPinnedFolders } from "@/repositories/folders";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "فضای کار",
@@ -20,6 +21,8 @@ export default async function PanelLayout({
   const officeName =
     user.role === "SUPER_ADMIN" ? "مدیریت کل" : user.office?.name ?? "دفتر شما";
   const isSuper = isSuperAdmin(user);
+  const { folders: pinnedFolders, total: pinnedTotal } =
+    await listPinnedFolders(user);
   const subscription = isSuper ? null : await activeSubscription(user.officeId);
   if (!isSuper && !subscription)
     return (
@@ -43,6 +46,8 @@ export default async function PanelLayout({
           : undefined
       }
       officeName={officeName}
+      pinnedFolders={pinnedFolders}
+      pinnedTotal={pinnedTotal}
     >
       {children}
     </Shell>

@@ -1,52 +1,52 @@
 .estate-box, .ashian-import-host { position: relative !important; }
 .ashian-import-property {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 20;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 34px;
-  max-width: 122px;
-  min-height: 30px;
-  padding: 6px 10px;
-  border: 1px solid rgba(255, 255, 255, .5);
-  border-radius: 4px;
-  background: #0f766e;
-  box-shadow: 0 4px 12px rgba(15, 118, 110, .25);
+  position: absolute !important;
+  top: 10px !important;
+  left: 10px !important;
+  z-index: 20 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  min-width: 34px !important;
+  max-width: 122px !important;
+  min-height: 30px !important;
+  padding: 6px 10px !important;
+  border: 1px solid rgba(255, 255, 255, .5) !important;
+  border-radius: 4px !important;
+  background: #0f766e !important;
+  box-shadow: 0 4px 12px rgba(15, 118, 110, .25) !important;
   color: #fff !important;
-  cursor: pointer;
-  direction: rtl;
-  font: 700 11px/1.2 Vazirmatn, IRANSansX, Tahoma, sans-serif;
-  white-space: nowrap;
-  transition: transform .18s ease, background .18s ease, box-shadow .18s ease, opacity .18s ease;
+  cursor: pointer !important;
+  direction: rtl !important;
+  font: 700 11px/1.2 Vazirmatn, IRANSansX, Tahoma, sans-serif !important;
+  white-space: nowrap !important;
+  transition: transform .18s ease, background .18s ease, box-shadow .18s ease, opacity .18s ease !important;
 }
 .ashian-import-property::before {
-  content: "⌂";
-  display: inline-grid;
-  width: 16px;
-  height: 16px;
-  place-items: center;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, .2);
+  content: "⌂" !important;
+  display: inline-grid !important;
+  width: 16px !important;
+  height: 16px !important;
+  place-items: center !important;
+  border-radius: 3px !important;
+  background: rgba(255, 255, 255, .2) !important;
   color: #fff !important;
-  font: 800 15px/1 Tahoma, sans-serif;
+  font: 800 15px/1 Tahoma, sans-serif !important;
 }
-.ashian-import-property:hover { background: #115e59; box-shadow: 0 7px 16px rgba(15, 118, 110, .35); transform: translateY(-1px) scale(1.02); }
-.ashian-import-property:active { transform: translateY(0) scale(.98); }
+.ashian-import-property:hover { background: #115e59 !important; box-shadow: 0 7px 16px rgba(15, 118, 110, .35) !important; transform: translateY(-1px) scale(1.02) !important; }
+.ashian-import-property:active { transform: translateY(0) scale(.98) !important; }
 .ashian-import-property[data-state="extracting"],
-.ashian-import-property[data-state="importing"] { opacity: .78; cursor: wait; }
+.ashian-import-property[data-state="importing"] { opacity: .78 !important; cursor: wait !important; }
 .ashian-import-property[data-state="extracting"]::before,
-.ashian-import-property[data-state="importing"]::before { content: "…"; }
-.ashian-import-property[data-state="success"] { background: #16734b; cursor: default; }
-.ashian-import-property[data-state="success"]::before { content: "✓"; }
-.ashian-import-property[data-state="duplicate"] { background: #80651d; cursor: default; }
-.ashian-import-property[data-state="duplicate"]::before { content: "↺"; }
-.ashian-import-property[data-state="error"] { background: #a43d3d; }
-.ashian-import-property[data-state="error"]::before { content: "!"; }
+.ashian-import-property[data-state="importing"]::before { content: "…" !important; }
+.ashian-import-property[data-state="success"] { background: #16734b !important; cursor: default !important; }
+.ashian-import-property[data-state="success"]::before { content: "✓" !important; }
+.ashian-import-property[data-state="duplicate"] { background: #80651d !important; cursor: default !important; }
+.ashian-import-property[data-state="duplicate"]::before { content: "↺" !important; }
+.ashian-import-property[data-state="error"] { background: #a43d3d !important; }
+.ashian-import-property[data-state="error"]::before { content: "!" !important; }
 .ashian-import-property__label { color: #fff !important; }
 @media (max-width: 600px) {
-  .ashian-import-property { top: 7px; left: 7px; max-width: 106px; padding: 5px 8px; font-size: 10px; }
+  .ashian-import-property { top: 7px !important; left: 7px !important; max-width: 106px !important; padding: 5px 8px !important; font-size: 10px !important; }
 }

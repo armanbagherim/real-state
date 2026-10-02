@@ -23,6 +23,13 @@ import {
 } from "../src/lib/billing";
 import { propertyWhere } from "../src/repositories/properties";
 import {
+  ancestorsOf,
+  descendantIds,
+  flattenFolderTree,
+  groupByDepth,
+  toFolderNodes,
+} from "../src/lib/folder-tree";
+import {
   canDeletePropertyImages,
   propertyCanDeleteImageWhere,
   type CurrentUser,
@@ -303,4 +310,144 @@ test("period end is calendar aware, not a fixed day count", () => {
   assert.equal(yearly.getUTCMonth(), 0);
   const feb = periodEnd(new Date("2026-07-15T00:00:00Z"), "MONTHLY");
   assert.equal(feb.getUTCMonth(), 7, "no month-boundary drift");
+});
+
+test("folder tree nests by parent and keeps orphans visible as roots", () => {
+  const nodes = toFolderNodes([
+    {
+      id: "a",
+      name: "منطقه یک",
+      color: "#111111",
+      parentId: null,
+      _count: { properties: 3, children: 1 },
+    },
+    {
+      id: "b",
+      name: "کمپین بهار",
+      color: "#222222",
+      parentId: "a",
+      _count: { properties: 5, children: 0 },
+    },
+    {
+      id: "c",
+      name: "شمال",
+      color: "#333333",
+      parentId: null,
+      _count: { properties: 0, children: 0 },
+    },
+    // parent outside the accessible scope
+    {
+      id: "d",
+      name: "یتیم",
+      color: "#444444",
+      parentId: "missing",
+      _count: { properties: 1, children: 0 },
+    },
+  ]);
+  const rootIds = nodes.map((n) => n.id).sort();
+  assert.deepEqual(rootIds, ["a", "c", "d"]);
+  const a = nodes.find((n) => n.id === "a")!;
+  assert.equal(a.nodes.length, 1);
+  assert.equal(a.nodes[0].id, "b");
+  assert.equal(a.nodes[0].depth, 1);
+  assert.equal(a.nodes[0].path, "منطقه یک › کمپین بهار");
+  assert.equal(a.nodes[0].properties, 5);
+  assert.equal(a.properties, 3, "parent count is its own files");
+});
+test("flattenFolderTree yields depth-first order with paths for selects", () => {
+  const flat = flattenFolderTree(
+    toFolderNodes([
+      { id: "a", name: "الف", color: "#111111", parentId: null },
+      { id: "b", name: "ب", color: "#222222", parentId: null },
+      { id: "a1", name: "ج", color: "#333333", parentId: "a" },
+    ]),
+  );
+  assert.deepEqual(
+    flat.map((n) => n.id),
+    ["a", "a1", "b"],
+  );
+  assert.deepEqual(
+    flat.map((n) => n.path),
+    ["الف", "الف › ج", "ب"],
+  );
+  assert.deepEqual(
+    flat.map((n) => n.depth),
+    [0, 1, 0],
+  );
+});
+test("groupByDepth rebuilds nesting from a depth-first flat list", () => {
+  const tree = groupByDepth([
+    { id: "a", depth: 0 },
+    { id: "a1", depth: 1 },
+    { id: "a1x", depth: 2 },
+    { id: "a2", depth: 1 },
+    { id: "b", depth: 0 },
+  ]);
+  assert.deepEqual(
+    tree.map((n) => n.id),
+    ["a", "b"],
+  );
+  assert.deepEqual(
+    tree[0].children.map((n) => n.id),
+    ["a1", "a2"],
+  );
+  assert.deepEqual(
+    tree[0].children[0].children.map((n) => n.id),
+    ["a1x"],
+  );
+  assert.deepEqual(tree[1].children, []);
+  // the picked id must be reachable anywhere in the tree
+  const ids: string[] = [];
+  const walk = (list: typeof tree) => {
+    for (const n of list) {
+      ids.push(n.id);
+      walk(n.children);
+    }
+  };
+  walk(tree);
+  assert.deepEqual(ids.sort(), ["a", "a1", "a1x", "a2", "b"]);
+});
+
+test("groupByDepth keeps siblings after a deep branch unwinds", () => {
+  const tree = groupByDepth([
+    { id: "r", depth: 0 },
+    { id: "d1", depth: 1 },
+    { id: "d1a", depth: 2 },
+    { id: "d1b", depth: 2 },
+    { id: "d2", depth: 1 },
+    { id: "d2a", depth: 2 },
+  ]);
+  assert.deepEqual(
+    tree[0].children.map((n) => n.id),
+    ["d1", "d2"],
+  );
+  assert.deepEqual(
+    tree[0].children[1].children.map((n) => n.id),
+    ["d2a"],
+  );
+});
+
+test("ancestorsOf and descendantIds walk the tree and refuse cycles", () => {
+  const flat = [
+    { id: "a", parentId: null },
+    { id: "b", parentId: "a" },
+    { id: "c", parentId: "b" },
+    { id: "d", parentId: null },
+  ];
+  assert.deepEqual(ancestorsOf("c", flat), [{ id: "a" }, { id: "b" }]);
+  assert.deepEqual([...descendantIds("a", flat)].sort(), ["b", "c"]);
+  assert.deepEqual([...descendantIds("c", flat)], []);
+  // a malformed parent cycle must not hang
+  const cyclic = [
+    { id: "x", parentId: "y" },
+    { id: "y", parentId: "x" },
+  ];
+  assert.deepEqual(ancestorsOf("x", cyclic), [{ id: "y" }]);
+});
+test("folder filter maps the unfiled sentinel to a null lookup", () => {
+  assert.equal(propertyWhere({ folderId: "abc" }).folderId, "abc");
+  assert.equal(propertyWhere({ folderId: "__unfiled__" }).folderId, null);
+  assert.equal(propertyWhere({}).folderId, undefined);
+  // no user means no access scoping, but deleted files stay hidden
+  assert.equal(propertyWhere({ folderId: "abc" }).deletedAt, null);
 });

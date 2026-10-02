@@ -1,1 +1,1 @@
-globalThis.ASHIAN_EXTENSION_CONFIG = {"apiBase":"http://localhost:3000"};
+globalThis.ASHIAN_EXTENSION_CONFIG = {"apiBase":"https://next-ifqzxw.chbkn.dev"};

@@ -19,12 +19,17 @@ import { RecordAction } from "@/components/record-actions";
 import { ImageUploader } from "@/components/image-uploader";
 import { PropertyGallery } from "@/components/property-gallery";
 import { RecordForm, type Field } from "@/components/forms";
+import { MovePropertyButton } from "@/components/move-property-button";
+import { PropertyFolderCard } from "@/components/property-folder-card";
+import { PublicLinkCard } from "@/components/public-link-card";
+import { AdCopyGenerator } from "@/components/ad-copy-generator";
 export default async function Page({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id, p, shareUsers, user } = await getPropertyDetailData(params);
+  const { id, p, shareUsers, user, folderOptions, publicLink, adCopies } =
+    await getPropertyDetailData(params);
   const shareText = propertyShareText({
     title: p.title,
     fileCode: p.fileCode,
@@ -69,12 +74,20 @@ export default async function Page({
         title={p.title}
         description={`${p.fileCode} · ثبت‌شده در ${dateFa(p.createdAt)}`}
       >
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" size="sm">
           <Link href={`/properties/${id}/edit`}>
-            <Pencil size={17} />
+            <Pencil size={15} />
             ویرایش فایل
           </Link>
         </Button>
+        <MovePropertyButton
+          propertyId={id}
+          currentFolderId={p.folderId}
+          folders={folderOptions}
+          size="sm"
+          label="تغییر پوشه"
+        />
+        <AdCopyGenerator propertyId={id} initialCopies={adCopies} size="sm" />
         <PropertyShare
           text={shareText}
           imageUrl={p.images[0]?.url}
@@ -132,7 +145,12 @@ export default async function Page({
                 </span>
               ))}
             </div>
-            <h3>توضیحات ملک</h3>
+            <PropertyFolderCard
+              folder={p.folder}
+              propertyId={id}
+              folders={folderOptions}
+            />
+            <h3>توضیحات ملک</h3>{" "}
             <p className="preserve-space">
               {p.description || "توضیحی ثبت نشده است."}
             </p>
@@ -247,6 +265,20 @@ export default async function Page({
               <Link href={`/owners/${p.owner.id}`}>مشاهده پرونده مالک ←</Link>
             </Button>
           </section>
+          <PublicLinkCard
+            propertyId={id}
+            initialToken={publicLink?.token}
+            showAddressDefault={publicLink?.showAddress}
+            stats={
+              publicLink
+                ? {
+                    views: publicLink.views,
+                    phoneClicks: publicLink.phoneClicks,
+                    visitRequests: publicLink.visitRequests,
+                  }
+                : undefined
+            }
+          />
           <section className="panel detail-panel">
             <h2>اشتراک‌گذاری فایل</h2>
             <p className="muted">
@@ -267,7 +299,9 @@ export default async function Page({
                 ))}
               </div>
             ) : (
-              <p className="muted">این فایل هنوز با کسی اشتراک‌گذاری نشده است.</p>
+              <p className="muted">
+                این فایل هنوز با کسی اشتراک‌گذاری نشده است.
+              </p>
             )}
             {shareUsers.length ? (
               <RecordForm
@@ -276,7 +310,9 @@ export default async function Page({
                 hidden={{ propertyId: id }}
               />
             ) : (
-              <p className="muted">کاربر تأییدشده‌ای برای اشتراک‌گذاری وجود ندارد.</p>
+              <p className="muted">
+                کاربر تأییدشده‌ای برای اشتراک‌گذاری وجود ندارد.
+              </p>
             )}
           </section>
           <section className="panel detail-panel">

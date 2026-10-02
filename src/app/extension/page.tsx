@@ -105,7 +105,7 @@ export default function ExtensionGuidePage() {
         <article className="extension-guide__panel extension-guide__panel--notice">
           <div className="extension-guide__panel-title"><AlertTriangle size={19} /> اگر افزونه کار نکرد</div>
           <ul>
-            <li>مطمئن شوید صفحه با آدرس اصلی divar.ir یا amlakplus.app باز شده است.</li>
+            <li>مطمئن شوید صفحه با آدرس اصلی divar.ir، amlakplus.app یا kashano.ir باز شده است.</li>
             <li>صفحه آگهی را refresh کنید و افزونه را دوباره Reload کنید.</li>
             <li>اگر خطای API دیدید، از مدیر سیستم بخواهید نسخه جدید آشیان را deploy کند.</li>
           </ul>

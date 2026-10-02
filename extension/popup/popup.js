@@ -5,6 +5,8 @@ const error = $("#login-error");
 const session = $("#session");
 const logout = $("#logout");
 const siteState = $("#site-state");
+const folderPicker = $("#folder-picker");
+const folderSelect = $("#folder-select");
 
 function showUser(user) {
   const loggedIn = Boolean(user);
@@ -19,13 +21,41 @@ async function activeSite() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
   if (!tab?.id) return "تب فعال پیدا نشد";
-  if (!tab.url?.includes("amlakplus")) return "در سایت AmlakPlus نیستید";
+  if (!/amlakplus|divar|kashano/.test(tab.url || "")) return "در سایت پشتیبانی‌شده نیستید";
   try {
     const response = await chrome.tabs.sendMessage(tab.id, { type: "SITE_STATE" });
-    return response?.cards ? `${response.cards} کارت آماده import است` : "صفحه AmlakPlus آماده است";
+    return response?.cards ? `${response.cards} کارت آماده import است` : "صفحه سایت آماده است";
   } catch {
     return "این صفحه هنوز اسکریپت افزونه را نگرفته است؛ یک بار refresh کنید";
   }
+}
+
+function showFolders(folders, defaultFolderId) {
+  const hasFolders = Array.isArray(folders) && folders.length > 0;
+  folderPicker.hidden = !hasFolders;
+  if (!hasFolders) return;
+  const byParent = new Map();
+  for (const folder of folders) {
+    const key = folder.parentId || "";
+    if (!byParent.has(key)) byParent.set(key, []);
+    byParent.get(key).push(folder);
+  }
+  folderSelect.replaceChildren();
+  const add = (value, label) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    folderSelect.append(option);
+  };
+  add("", "بدون پوشه");
+  const walk = (parentId, depth) => {
+    for (const folder of byParent.get(parentId) || []) {
+      add(folder.id, `${depth ? "↳ " : ""}${folder.name}`);
+      walk(folder.id, depth + 1);
+    }
+  };
+  walk("", 0);
+  folderSelect.value = defaultFolderId || "";
 }
 
 async function refresh() {
@@ -33,6 +63,7 @@ async function refresh() {
   showUser(state.user);
   siteState.dataset.apiBase = state.apiBase || "";
   siteState.textContent = await activeSite();
+  showFolders(state.folders, state.defaultFolderId);
 }
 
 form.addEventListener("submit", async (event) => {
@@ -51,6 +82,12 @@ form.addEventListener("submit", async (event) => {
   } catch (caught) {
     error.textContent = caught.message || "ارتباط با آشیان برقرار نشد";
   }
+});
+
+folderSelect.addEventListener("change", async () => {
+  await send({ type: "SET_DEFAULT_FOLDER", folderId: folderSelect.value });
+  const name = folderSelect.selectedOptions[0]?.textContent || "";
+  folderSelect.dataset.saved = name;
 });
 
 logout.addEventListener("click", async () => {

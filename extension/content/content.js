@@ -1,5 +1,6 @@
 (function () {
-  const adapter = window.AshianSiteAdapter || window.AshianAmlakPlusAdapter;
+  const adapter = [window.AshianSiteAdapter, window.AshianAmlakPlusAdapter, window.AshianKashanoAdapter]
+    .find((candidate) => candidate?.canHandle?.());
   if (!adapter?.canHandle()) return;
   const buttonClass = "ashian-import-property";
   const statusLabels = { ready: "افزودن به آشیان", extracting: "در حال استخراج…", importing: "در حال ثبت…", success: "✓ اضافه شد", duplicate: "قبلاً ثبت شده", error: "خطا؛ تلاش مجدد" };
@@ -57,5 +58,5 @@
   });
   const observer = new MutationObserver(() => scan());
   observer.observe(document.body, { childList: true, subtree: true });
-  console.info("[Ashian Extension] AmlakPlus adapter ready");
+  console.info(`[Ashian Extension] ${adapter.id} adapter ready`);
 })();

@@ -84,6 +84,26 @@ enum BillingPeriod {
   YEARLY
 }
 
+/**
+ * Output shapes the ad-copy generator can produce for one property.
+ */
+enum AdCopyVariant {
+  DIVAR
+  INSTAGRAM
+  WHATSAPP
+  CUSTOMER
+}
+
+/**
+ * Interactions recorded against a shared public listing.
+ */
+enum PublicListingEventType {
+  VIEW
+  GALLERY
+  PHONE_CLICK
+  VISIT_REQUEST
+}
+
 model Package {
   id            String         @id @default(cuid())
   name          String
@@ -169,6 +189,7 @@ model Office {
   users                   User[]
   owners                  Owner[]
   properties              Property[]
+  folders                 FilingFolder[]
   settings                Settings?
   subscriptions           Subscription[]
 
@@ -201,6 +222,10 @@ model User {
   referralCode          ReferralCode?           @relation("UserReferralCode")
   referredUsers         User[]                  @relation("UserReferredBy")
   commissionEntries     CommissionEntry[]
+  createdFolders        FilingFolder[]          @relation("FolderCreatedBy")
+  folderPins            FilingFolderPin[]
+  createdPublicLinks    PropertyPublicLink[]    @relation("PublicLinkCreatedBy")
+  createdAdCopies       PropertyAdCopy[]        @relation("AdCopyCreatedBy")
   approvedSubscriptions Subscription[]          @relation("SubscriptionApprovedBy")
   referredSubscriptions Subscription[]          @relation("SubscriptionReferredBy")
 
@@ -311,7 +336,11 @@ model Property {
   followUps       FollowUp[]
   reminders       Reminder[]
   shares          PropertyShare[]
+  folderId        String?
+  folder          FilingFolder?           @relation(fields: [folderId], references: [id], onDelete: SetNull)
   referralCode    ReferralCode?           @relation("PropertyReferralCode")
+  publicLink      PropertyPublicLink?
+  adCopies        PropertyAdCopy[]
 
   @@unique([source, sourceUrl])
   @@index([officeId])
@@ -321,6 +350,97 @@ model Property {
   @@index([ownerId])
   @@index([neighborhood])
   @@index([createdAt])
+  @@index([folderId, deletedAt])
+}
+
+model FilingFolder {
+  id              String            @id @default(cuid())
+  officeId        String?
+  office          Office?           @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  parentId        String?
+  parent          FilingFolder?     @relation("FolderTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children        FilingFolder[]    @relation("FolderTree")
+  name            String
+  color           String            @default("#147d70")
+  sortOrder       Int               @default(0)
+  createdByUserId String?
+  createdByUser   User?             @relation("FolderCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  properties      Property[]
+  pins            FilingFolderPin[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([officeId, parentId, sortOrder])
+  @@index([officeId, name])
+}
+
+model FilingFolderPin {
+  id        String       @id @default(cuid())
+  folderId  String
+  folder    FilingFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([folderId, userId])
+  @@index([userId, createdAt])
+}
+
+/**
+ * A shareable, login-free page for one property. Distinct from `PropertyShare`,
+ * which is internal agent-to-agent access inside the office.
+ */
+model PropertyPublicLink {
+  id              String               @id @default(cuid())
+  token           String               @unique
+  propertyId      String               @unique
+  property        Property             @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  createdByUserId String?
+  createdByUser   User?                @relation("PublicLinkCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  isActive        Boolean              @default(true)
+  showAddress     Boolean              @default(false)
+  showPhone       Boolean              @default(true)
+  views           Int                  @default(0)
+  phoneClicks     Int                  @default(0)
+  visitRequests   Int                  @default(0)
+  lastViewedAt    DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  events          PublicListingEvent[]
+
+  @@index([isActive])
+}
+
+model PublicListingEvent {
+  id        String                 @id @default(cuid())
+  linkId    String
+  link      PropertyPublicLink     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  type      PublicListingEventType
+  createdAt DateTime               @default(now())
+
+  @@index([linkId, type])
+  @@index([linkId, createdAt])
+}
+
+/**
+ * Generated ad text per channel. One row per variant keeps the latest text
+ * while leaving room for more channels (divar, instagram, whatsapp, ...).
+ */
+model PropertyAdCopy {
+  id              String        @id @default(cuid())
+  propertyId      String
+  property        Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  variant         AdCopyVariant @default(DIVAR)
+  content         String
+  generator       String        @default("")
+  editedByUser    Boolean       @default(false)
+  createdByUserId String?
+  createdByUser   User?         @relation("AdCopyCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([propertyId, variant])
+  @@index([propertyId])
 }
 
 model PropertyShare {

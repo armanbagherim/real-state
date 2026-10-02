@@ -1,14 +1,22 @@
 importScripts("config.js");
 
 const DEFAULT_API_BASE = globalThis.ASHIAN_EXTENSION_CONFIG?.apiBase || "http://localhost:3000";
-const STORAGE_KEYS = { apiBase: "ashianApiBase", token: "ashianToken", user: "ashianUser" };
+const STORAGE_KEYS = {
+  apiBase: "ashianApiBase",
+  token: "ashianToken",
+  user: "ashianUser",
+  folders: "ashianFolders",
+  defaultFolderId: "ashianDefaultFolderId",
+};
 
 async function config() {
-  const saved = await chrome.storage.local.get([STORAGE_KEYS.apiBase, STORAGE_KEYS.token, STORAGE_KEYS.user]);
+  const saved = await chrome.storage.local.get(Object.values(STORAGE_KEYS));
   return {
     apiBase: (saved[STORAGE_KEYS.apiBase] || DEFAULT_API_BASE).replace(/\/$/, ""),
     token: saved[STORAGE_KEYS.token] || "",
     user: saved[STORAGE_KEYS.user] || null,
+    folders: saved[STORAGE_KEYS.folders] || [],
+    defaultFolderId: saved[STORAGE_KEYS.defaultFolderId] || "",
   };
 }
 
@@ -64,18 +72,37 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       if (!current.token) return { ok: true, user: null, apiBase: current.apiBase };
       try {
         const body = await request("/api/extension/me");
-        await chrome.storage.local.set({ [STORAGE_KEYS.user]: body.user });
-        return { ok: true, user: body.user, apiBase: current.apiBase };
+        await chrome.storage.local.set({
+          [STORAGE_KEYS.user]: body.user,
+          [STORAGE_KEYS.folders]: body.folders || [],
+        });
+        return {
+          ok: true,
+          user: body.user,
+          apiBase: current.apiBase,
+          folders: body.folders || [],
+          defaultFolderId: current.defaultFolderId,
+        };
       } catch (error) {
         if (error.status === 401) await chrome.storage.local.remove([STORAGE_KEYS.token, STORAGE_KEYS.user]);
         return { ok: true, user: null, apiBase: current.apiBase };
       }
     }
+    if (message.type === "SET_DEFAULT_FOLDER") {
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.defaultFolderId]: String(message.folderId || ""),
+      });
+      return { ok: true, folderId: String(message.folderId || "") };
+    }
     if (message.type === "IMPORT_PROPERTY") {
+      const current = await config();
       try {
         const body = await request("/api/extension/import", {
           method: "POST",
-          body: JSON.stringify(message.property),
+          body: JSON.stringify({
+            ...message.property,
+            folderId: message.folderId || current.defaultFolderId || undefined,
+          }),
         });
         return { ok: true, body };
       } catch (error) {

@@ -75,6 +75,12 @@ export function propertyCanEditWhere(
   };
 }
 
+export function filingFolderAccessWhere(
+  user: CurrentUser,
+): Prisma.FilingFolderWhereInput {
+  return isSuperAdmin(user) ? {} : { officeId: user.officeId ?? "__none__" };
+}
+
 export function propertyCanDeleteWhere(
   user: CurrentUser,
 ): Prisma.PropertyWhereInput {

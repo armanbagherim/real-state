@@ -4,7 +4,11 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "./ui/button";
 import { propertyTypes, statuses } from "@/lib/utils";
-export function PropertyFilters() {
+export function PropertyFilters({
+  lockedFolderId,
+}: {
+  lockedFolderId?: string;
+}) {
   const router = useRouter(),
     path = usePathname(),
     params = useSearchParams();
@@ -162,6 +166,9 @@ export function PropertyFilters() {
           <X size={13} />
           پاک کردن فیلترها
         </button>
+      )}
+      {lockedFolderId && (
+        <input type="hidden" name="folderId" value={lockedFolderId} />
       )}
     </form>
   );

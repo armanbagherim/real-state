@@ -5,6 +5,7 @@ import "@fontsource/vazirmatn/500.css";
 import "@fontsource/vazirmatn/600.css";
 import "@fontsource/vazirmatn/700.css";
 import "./globals.css";
+import "./public-listing.css";
 export const metadata: Metadata = {
   title: { default: "آشیان | مدیریت املاک", template: "%s | آشیان" },
   description: "مدیریت فایل‌های املاک، مالکین، قراردادها و پیگیری‌های دفتر",

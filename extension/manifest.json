@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Ashian Importer",
   "version": "0.1.0",
-  "description": "افزودن فایل‌های ملکی از AmlakPlus و دیوار به آشیان",
+  "description": "افزودن فایل‌های ملکی از AmlakPlus، دیوار و کاشانو به آشیان",
   "action": {
     "default_title": "افزودن به آشیان",
     "default_popup": "popup/index.html"
@@ -23,7 +23,9 @@
     "https://amlakplus.app/*",
     "https://*.amlakplus.app/*",
     "https://divar.ir/*",
-    "https://*.divar.ir/*"
+    "https://*.divar.ir/*",
+    "https://kashano.ir/*",
+    "https://*.kashano.ir/*"
   ],
   "content_scripts": [
     {
@@ -35,10 +37,12 @@
         "https://amlakplus.app/*",
         "https://*.amlakplus.app/*",
         "https://divar.ir/*",
-        "https://*.divar.ir/*"
+        "https://*.divar.ir/*",
+        "https://kashano.ir/*",
+        "https://*.kashano.ir/*"
       ],
       "css": ["content/content.css"],
-      "js": ["sites/amlakplus/adapter.js", "sites/divar/adapter.js", "content/content.js"],
+      "js": ["sites/amlakplus/adapter.js", "sites/divar/adapter.js", "sites/kashano/adapter.js", "content/content.js"],
       "run_at": "document_idle"
     }
   ]

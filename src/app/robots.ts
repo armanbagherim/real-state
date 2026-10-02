@@ -13,6 +13,9 @@ const app = [
   "/agents",
   "/offices",
   "/extension",
+  // Customer links are shared deliberately with named people, never indexed.
+  "/p/",
+  "/api/",
 ];
 
 export default function robots(): MetadataRoute.Robots {

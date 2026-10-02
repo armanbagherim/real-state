@@ -29,6 +29,9 @@ export function propertyWhere(
     ];
   if (["RENT", "SALE"].includes(str(s, "transactionType")))
     where.transactionType = str(s, "transactionType") as "RENT" | "SALE";
+  const folder = str(s, "folderId");
+  if (folder === "__unfiled__") where.folderId = null;
+  else if (folder) where.folderId = folder;
   if (
     ["ACTIVE", "RENTED", "SOLD", "INACTIVE", "ARCHIVED"].includes(
       str(s, "status"),

@@ -14,7 +14,7 @@
     "db:migrate": "dotenv -e .env.local -- prisma migrate deploy",
     "db:reset": "tsx scripts/reset-db.ts",
     "db:seed": "tsx prisma/seed.ts",
-    "test": "tsx --test tests/domain.test.ts",
+    "test": "tsx --test tests/domain.test.ts tests/divar-adapter.test.ts tests/ad-copy.test.ts tests/public-listing.test.ts",
     "test:integration": "tsx scripts/integration.ts",
     "format": "prettier --write src scripts tests",
     "test:browser": "tsx scripts/browser-check.ts",

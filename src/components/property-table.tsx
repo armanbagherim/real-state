@@ -5,6 +5,8 @@ import {
   MapPin,
   BedDouble,
   Maximize,
+  Folder,
+  FolderX,
 } from "lucide-react";
 import type { Prisma } from "@prisma/client";
 import { fa, shortMoney, dateFa } from "@/lib/utils";
@@ -14,9 +16,13 @@ import {
   AccessToggle,
   AssignSubscriptionButton,
 } from "./property-access-controls";
-type Row = Prisma.PropertyGetPayload<{
+import { MovePropertyButton } from "./move-property-button";
+import type { FolderOption } from "./folder-select";
+import { FolderSelectAll, FolderSelectOne } from "./folder-bulk-move";
+type BaseRow = Prisma.PropertyGetPayload<{
   include: { owner: true; images: true };
 }>;
+type Row = BaseRow & { folder?: FolderOption };
 export function PropertyTable({
   items,
   compact = false,
@@ -25,6 +31,8 @@ export function PropertyTable({
   assignable = false,
   packages = [],
   offices = [],
+  folders = [],
+  selectable = false,
 }: {
   items: Row[];
   compact?: boolean;
@@ -33,6 +41,8 @@ export function PropertyTable({
   assignable?: boolean;
   packages?: { id: string; name: string; monthlyPrice: number }[];
   offices?: { id: string; name: string }[];
+  folders?: FolderOption[];
+  selectable?: boolean;
 }) {
   const officeNames = new Map(offices.map((o) => [o.id, o.name]));
   const values = (p: Row): Record<string, string | number | boolean> => {
@@ -60,7 +70,13 @@ export function PropertyTable({
         <table>
           <thead>
             <tr>
+              {selectable && (
+                <th className="folder-select-col">
+                  <FolderSelectAll ids={items.map((p) => p.id)} />
+                </th>
+              )}
               <th>اطلاعات ملک</th>
+              {folders.length > 0 && <th>پوشه</th>}
               <th>نوع معامله</th>
               <th>متراژ / خواب</th>
               <th>
@@ -79,6 +95,11 @@ export function PropertyTable({
           <tbody>
             {items.map((p) => (
               <tr key={p.id}>
+                {selectable && (
+                  <td className="folder-select-col">
+                    <FolderSelectOne id={p.id} />
+                  </td>
+                )}
                 <td>
                   <Link
                     className="property-identity"
@@ -109,6 +130,29 @@ export function PropertyTable({
                     </div>
                   </Link>
                 </td>
+                {folders.length > 0 && (
+                  <td>
+                    {p.folder ? (
+                      <Link
+                        href={`/folders/${p.folder.id}`}
+                        className="folder-cell"
+                        style={
+                          {
+                            "--folder-color": p.folder.color,
+                          } as React.CSSProperties
+                        }
+                      >
+                        <Folder size={13} />
+                        <span>{p.folder.name}</span>
+                      </Link>
+                    ) : (
+                      <span className="folder-cell folder-cell-empty">
+                        <FolderX size={13} />
+                        <span>بدون پوشه</span>
+                      </span>
+                    )}
+                  </td>
+                )}
                 <td>
                   <span
                     className={`transaction transaction-${p.transactionType.toLowerCase()}`}
@@ -162,6 +206,13 @@ export function PropertyTable({
                       fileCode={p.fileCode}
                       blocked={Boolean(p.accessBlockedAt)}
                     />
+                    {folders.length > 0 && (
+                      <MovePropertyButton
+                        propertyId={p.id}
+                        currentFolderId={p.folderId}
+                        folders={folders}
+                      />
+                    )}
                     {assignable && (
                       <AssignSubscriptionButton
                         officeId={p.officeId}
@@ -201,6 +252,23 @@ export function PropertyTable({
               </span>
               <Badge value={p.status} />
             </div>
+            {folders.length > 0 && (
+              <span
+                className={`folder-cell folder-cell-mobile${
+                  p.folder ? "" : " folder-cell-empty"
+                }`}
+                style={
+                  p.folder
+                    ? ({
+                        "--folder-color": p.folder.color,
+                      } as React.CSSProperties)
+                    : undefined
+                }
+              >
+                {p.folder ? <Folder size={12} /> : <FolderX size={12} />}
+                <span>{p.folder ? p.folder.path : "بدون پوشه"}</span>
+              </span>
+            )}
             <h3>{p.title}</h3>
             <p>
               <MapPin size={14} />

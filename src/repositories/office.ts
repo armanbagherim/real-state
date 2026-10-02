@@ -11,6 +11,8 @@ import {
   propertyCanEditWhere,
 } from "@/lib/access";
 import { listProperties, str, type SearchParams } from "./properties";
+import { listAllFolders } from "./folders";
+import { folderOptions } from "@/lib/folder-tree";
 
 function scopedProperty(user: Awaited<ReturnType<typeof requireUser>>) {
   return { deletedAt: null, AND: [propertyAccessWhere(user)] };
@@ -180,6 +182,10 @@ export async function getPropertyEditData(params: Promise<{ id: string }>) {
 }
 
 export async function getPropertyDetailData(params: Promise<{ id: string }>) {
+  const {
+    getLinkForProperty,
+    listAdCopies,
+  } = await import("@/repositories/public-listings");
   const user = await requireUser();
   const { id } = await params;
   const p = await db.property.findFirst({
@@ -196,6 +202,7 @@ export async function getPropertyDetailData(params: Promise<{ id: string }>) {
         orderBy: { createdAt: "desc" },
         take: 50,
       },
+      folder: { select: { id: true, name: true, color: true } },
       contracts: { orderBy: { createdAt: "desc" }, take: 30 },
       followUps: { orderBy: { createdAt: "desc" }, take: 20 },
       reminders: {
@@ -217,7 +224,36 @@ export async function getPropertyDetailData(params: Promise<{ id: string }>) {
     orderBy: { name: "asc" },
     take: 100,
   });
-  return { id, p, shareUsers, user };
+  const [folders, linkResult, adCopies] = await Promise.all([
+    listAllFolders(user),
+    getLinkForProperty(id, user),
+    listAdCopies(id),
+  ]);
+  const link = "error" in linkResult ? undefined : linkResult.link;
+  return {
+    id,
+    p,
+    shareUsers,
+    user,
+    folderOptions: folderOptions(folders),
+    publicLink: link
+      ? {
+          token: link.token,
+          isActive: link.isActive,
+          showAddress: link.showAddress,
+          showPhone: link.showPhone,
+          views: link.views,
+          phoneClicks: link.phoneClicks,
+          visitRequests: link.visitRequests,
+        }
+      : null,
+    adCopies: adCopies.map((copy) => ({
+      variant: copy.variant,
+      content: copy.content,
+      generator: copy.generator,
+      editedByUser: copy.editedByUser,
+    })),
+  };
 }
 
 export async function getOwnersData(searchParams: Promise<SearchParams>) {
